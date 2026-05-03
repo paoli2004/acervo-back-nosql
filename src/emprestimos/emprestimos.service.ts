@@ -192,7 +192,11 @@ export class EmprestimosService {
     }
 
     if (params.ativo !== undefined) {
-      qb.andWhere('emprestimo.ativo = :ativo', { ativo: params.ativo });
+      if (params.ativo) {
+        qb.andWhere('emprestimo.ativo = true');
+      } else {
+        qb.andWhere('emprestimo.ativo = false');
+      }
     }
 
     const emprestimos = await qb.orderBy('emprestimo.id', 'ASC').getMany();

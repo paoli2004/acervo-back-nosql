@@ -200,8 +200,8 @@ export class LivrosService {
       .createQueryBuilder('livro')
       .leftJoinAndSelect('livro.autor', 'autor')
       .leftJoinAndSelect('livro.categoria', 'categoria')
-      .leftJoin('livro.exemplar', 'exemplar')
-      .leftJoin(
+      .leftJoinAndSelect('livro.exemplar', 'exemplar')
+      .leftJoinAndSelect(
         'exemplar.emprestimos',
         'emprestimo',
         'emprestimo.ativo = :ativo',
@@ -219,7 +219,9 @@ export class LivrosService {
     }
 
     if (params.onlyDisponiveis) {
-      qb.andWhere('emprestimo.id IS NULL');
+      qb.andWhere('exemplar.id IS NOT NULL').andWhere(
+        'emprestimo.ativo IS NOT TRUE',
+      );
     }
 
     const livros = await qb.orderBy('livro.id', 'ASC').getMany();
@@ -230,9 +232,12 @@ export class LivrosService {
       isbn: livro.isbn,
       autor: livro.autor ?? [],
       categoria: livro.categoria ?? [],
-      temExemplarDisponivel: livro.exemplar?.some(
-        (e: any) => !e.emprestimos?.some((emp: any) => emp.ativo),
-      ),
+      temExemplarDisponivel:
+        (livro.exemplar?.length ?? 0) > 0 &&
+        livro.exemplar.some(
+          (e: any) =>
+            e.id != null && !e.emprestimos?.some((emp: any) => emp.ativo),
+        ),
     }));
   }
 }
