@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -16,43 +15,49 @@ import { UpdateUsuarioDto } from './dto/updateUsuario.dto';
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
-  @Post()
-  async createUsuario(@Body() createUsuario: CreateUsuarioDto) {
-    await this.usuariosService.createUsuario(createUsuario);
-
-    return {
-      message: 'Usuário criado com sucesso',
-    };
-  }
-
-  @Patch(':id')
-  async updateUsuario(
-    @Param('id') id: number,
-    @Body() updateUsuario: UpdateUsuarioDto,
-  ) {
-    await this.usuariosService.updateUsuario(id, updateUsuario);
-
-    return {
-      message: 'Usuário atualizado com sucesso',
-    };
-  }
-
-  @Delete(':id')
-  async removeUsuario(@Param('id', ParseIntPipe) id: number) {
-    await this.usuariosService.removeUsuario(id);
-
-    return {
-      message: 'Usuário removido com sucesso',
-    };
-  }
-
-  @Get(':id')
-  async getUsuarioById(@Param('id', ParseIntPipe) id: number) {
-    return this.usuariosService.getUsuarioById(id);
+  @Get(':usuarioId')
+  async getUsuarioById(@Param('usuarioId') usuarioId: string) {
+    return this.usuariosService.findUsuario({ _id: usuarioId });
   }
 
   @Get()
   async getAllUsuarios() {
-    return this.usuariosService.getAllUsuarios();
+    return this.usuariosService.findAllUsuarios();
+  }
+
+  @Post()
+  async createUsuario(@Body() createUsuario: CreateUsuarioDto) {
+    const newUser = await this.usuariosService.createUsuario(createUsuario);
+
+    return {
+      message: 'Usuário criado com sucesso',
+      usuario: newUser,
+    };
+  }
+
+  @Patch(':usuarioId')
+  async updateUsuario(
+    @Param('usuarioId') usuarioId: string,
+    @Body() updateUsuario: UpdateUsuarioDto,
+  ) {
+    const updatedUser = await this.usuariosService.findOneAndUpdateUsuario(
+      { _id: usuarioId },
+      updateUsuario,
+    );
+
+    return {
+      message: 'Usuário atualizado com sucesso',
+      usuario: updatedUser,
+    };
+  }
+
+  @Delete(':usuarioId')
+  async removeUsuario(@Param('usuarioId') usuarioId: string) {
+    await this.usuariosService.deleteUsuario({ _id: usuarioId });
+
+    return {
+      message: 'Usuário removido com sucesso',
+      usuario: { _id: usuarioId },
+    };
   }
 }
