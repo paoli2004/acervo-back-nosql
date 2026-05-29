@@ -3,9 +3,8 @@ import { CreateExemplarDto } from './createExemplar.dto';
 
 export class UpdateExemplarDto extends PartialType(
   PickType(CreateExemplarDto, [
-    'livro_id',
+    'livro',
     'codigo_patrimonio',
     'ano_publicacao',
-    'editora_id',
   ] as const),
 ) {}

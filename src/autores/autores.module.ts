@@ -1,13 +1,15 @@
-// import { Module } from '@nestjs/common';
-// import { TypeOrmModule } from '@nestjs/typeorm';
-// import { AutoresController } from './autores.controller';
-// import { Autores } from './entities/autores.entity';
-// import { AutoresService } from './autores.service';
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Autor, AutorSchema } from './schemas/autor.schema';
+import { AutoresController } from './autores.controller';
+import { AutoresService } from './autores.service';
 
-// @Module({
-//   imports: [TypeOrmModule.forFeature([Autores])],
-//   controllers: [AutoresController],
-//   providers: [AutoresService],
-//   exports: [AutoresService],
-// })
-// export class AutoresModule {}
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Autor.name, schema: AutorSchema }]),
+  ],
+  controllers: [AutoresController],
+  providers: [AutoresService],
+  exports: [AutoresService],
+})
+export class AutoresModule {}

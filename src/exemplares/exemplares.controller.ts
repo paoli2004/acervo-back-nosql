@@ -1,78 +1,84 @@
-// import {
-//   Body,
-//   Controller,
-//   Delete,
-//   Get,
-//   Param,
-//   Post,
-//   ParseIntPipe,
-//   Patch,
-//   Query,
-// } from '@nestjs/common';
-// import { ExemplaresService } from './exemplares.service';
-// import { CreateExemplarDto } from './dto/createExemplar.dto';
-// import { UpdateExemplarDto } from './dto/updateExemplar.dto';
-// import { Exemplares } from './entities/exemplares.entity';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Patch,
+  Query,
+} from '@nestjs/common';
+import { ExemplaresService } from './exemplares.service';
+import { CreateExemplarDto } from './dto/createExemplar.dto';
+import { UpdateExemplarDto } from './dto/updateExemplar.dto';
 
-// @Controller('exemplares')
-// export class ExemplaresController {
-//   constructor(private readonly exemplaresService: ExemplaresService) {}
+@Controller('exemplares')
+export class ExemplaresController {
+  constructor(private readonly exemplaresService: ExemplaresService) {}
 
-//   @Post()
-//   async createExemplar(@Body() createExemplar: CreateExemplarDto) {
-//     await this.exemplaresService.createExemplar(createExemplar);
+  @Get(':livroId')
+  async findExemplar(@Param('livroId') livroId: string) {
+    return this.exemplaresService.findExemplar({ _id: livroId });
+  }
 
-//     return {
-//       message: 'Exemplar criado com sucesso',
-//     };
-//   }
+  @Get()
+  async findAllExemplares() {
+    return this.exemplaresService.findAllExemplares();
+  }
 
-//   @Patch(':id')
-//   async updateExemplar(
-//     @Param('id', ParseIntPipe) id: number,
-//     @Body() updateExemplar: UpdateExemplarDto,
-//   ) {
-//     await this.exemplaresService.updateExemplar(id, updateExemplar);
+  @Get('disponiveis')
+  async findAllExemplaresDisponiveis() {
+    return this.exemplaresService.findAllExemplaresDisponiveis();
+  }
 
-//     return {
-//       message: 'Exemplar atualizado com sucesso',
-//     };
-//   }
+  @Get('livro/:livroId')
+  async getExemplaresByLivro(
+    @Param('livroId') livroId: string,
+    @Query('onlyDisponiveis') onlyDisponiveis?: string,
+  ) {
+    return this.exemplaresService.getExemplaresByLivro(
+      livroId,
+      onlyDisponiveis === 'true',
+    );
+  }
 
-//   @Delete(':id')
-//   async removeExemplar(@Param('id', ParseIntPipe) id: number) {
-//     await this.exemplaresService.removeExemplar(id);
+  @Post()
+  async createExemplar(@Body() createExemplarDto: CreateExemplarDto) {
+    const newExemplary =
+      await this.exemplaresService.createExemplar(createExemplarDto);
 
-//     return {
-//       message: 'Exemplar removido com sucesso',
-//     };
-//   }
+    return {
+      message: 'Exemplar criado com sucesso',
+      exemplar: newExemplary,
+    };
+  }
 
-//   @Get('disponiveis')
-//   async getExemplaresDisponiveis(): Promise<any[]> {
-//     return this.exemplaresService.getExemplaresDisponiveis();
-//   }
+  @Patch(':livroId')
+  async updateExemplar(
+    @Param('livroId') livroId: string,
+    @Body() updateExemplarDto: UpdateExemplarDto,
+  ) {
+    const updatedExemplary =
+      await this.exemplaresService.findOneAndUpdateExemplar(
+        { _id: livroId },
+        updateExemplarDto,
+      );
 
-//   @Get(':id')
-//   async getExemplarById(
-//     @Param('id', ParseIntPipe) id: number,
-//   ): Promise<Exemplares | null> {
-//     return this.exemplaresService.getExemplarById(id);
-//   }
+    return {
+      message: 'Exemplar atualizado com sucesso',
+      exemplar: updatedExemplary,
+    };
+  }
 
-//   @Get()
-//   async getAllExemplares(): Promise<Exemplares[]> {
-//     return this.exemplaresService.getAllExemplares();
-//   }
+  @Delete(':livroId')
+  async deleteExemplar(@Param('livroId') livroId: string) {
+    const deletedExemplary = await this.exemplaresService.deleteExemplar({
+      _id: livroId,
+    });
 
-//   @Get('livro/:livro_id')
-//   getByLivro(
-//     @Param('livro_id') livro_id: number,
-//     @Query('onlyDisponiveis') onlyDisponiveis?: string,
-//   ) {
-//     return this.exemplaresService.getExemplaresByLivro(
-//       livro_id,
-//       onlyDisponiveis === 'true',
-//     );
-//   }
-// }
+    return {
+      message: 'Exemplar removido com sucesso',
+      exemplar: deletedExemplary,
+    };
+  }
+}

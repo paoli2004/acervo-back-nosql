@@ -1,58 +1,63 @@
-// import {
-//   Body,
-//   Controller,
-//   Delete,
-//   Get,
-//   Param,
-//   Patch,
-//   Post,
-// } from '@nestjs/common';
-// import { AutoresService } from './autores.service';
-// import { CreateAutorDto } from './dto/createAutor.dto';
-// import { Autores } from './entities/autores.entity';
-// import { UpdateAutorDto } from './dto/updateAutor.dto';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { AutoresService } from './autores.service';
+import { CreateAutorDto } from './dto/createAutor.dto';
+import { UpdateAutorDto } from './dto/updateAutor.dto';
+import { Autor } from './schemas/autor.schema';
 
-// @Controller('autores')
-// export class AutoresController {
-//   constructor(private readonly autoresService: AutoresService) {}
+@Controller('autores')
+export class AutoresController {
+  constructor(private readonly autoresService: AutoresService) {}
 
-//   @Post()
-//   async createAutor(@Body() createAutor: CreateAutorDto) {
-//     await this.autoresService.createAutor(createAutor);
+  @Get(':autorId')
+  async findAutor(@Param('autorId') autorId: string): Promise<Autor | null> {
+    return this.autoresService.findAutor({ _id: autorId });
+  }
 
-//     return {
-//       message: 'Autor criado com sucesso',
-//     };
-//   }
+  @Get()
+  async findAllAutores(): Promise<Autor[]> {
+    return this.autoresService.findAllAutores();
+  }
 
-//   @Patch(':id')
-//   async updateAutor(
-//     @Param('id') id: number,
-//     @Body() updateAutor: UpdateAutorDto,
-//   ) {
-//     await this.autoresService.updateAutor(id, updateAutor);
+  @Post()
+  async createAutor(@Body() createAutor: CreateAutorDto) {
+    const newAutor = await this.autoresService.createAutor(createAutor);
 
-//     return {
-//       message: 'Autor atualizado com sucesso',
-//     };
-//   }
+    return {
+      message: 'Autor criado com sucesso',
+      autor: newAutor,
+    };
+  }
 
-//   @Delete(':id')
-//   async removeAutor(@Param('id') id: number) {
-//     await this.autoresService.removeAutor(id);
+  @Patch(':autorId')
+  async findoneAndUpdateAutor(
+    @Param('autorId') autorId: string,
+    @Body() updateAutor: UpdateAutorDto,
+  ) {
+    const updatedAuthor = await this.autoresService.findOneAndUpdateAutor(
+      { _id: autorId },
+      updateAutor,
+    );
 
-//     return {
-//       message: 'Autor removido com sucesso',
-//     };
-//   }
+    return {
+      message: 'Autor atualizado com sucesso',
+      autor: updatedAuthor,
+    };
+  }
 
-//   @Get(':id')
-//   async getAutorById(@Param('id') id: number): Promise<Autores | null> {
-//     return this.autoresService.getAutorById(id);
-//   }
+  @Delete(':autorId')
+  async deleteAutor(@Param('autorId') autorId: string) {
+    await this.autoresService.deleteAutor({ _id: autorId });
 
-//   @Get()
-//   async getAllAutores(): Promise<Autores[]> {
-//     return this.autoresService.getAllAutores();
-//   }
-// }
+    return {
+      message: 'Autor removido com sucesso',
+    };
+  }
+}

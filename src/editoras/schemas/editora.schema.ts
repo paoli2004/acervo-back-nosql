@@ -1,11 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
-export type UsuarioDocument = HydratedDocument<Usuario>;
-
+export type EditoraDocument = HydratedDocument<Editora>;
 @Schema({
   timestamps: { createdAt: 'criado_em', updatedAt: 'atualizado_em' },
-  collection: 'usuarios',
+  collection: 'editoras',
   toJSON: {
     virtuals: true,
     versionKey: false,
@@ -16,12 +15,12 @@ export type UsuarioDocument = HydratedDocument<Usuario>;
   },
   toObject: { virtuals: true },
 })
-export class Usuario {
+export class Editora {
   @Prop({ required: true, maxlength: 100 })
   nome!: string;
 
   @Prop({ required: true, maxlength: 100 })
-  email!: string;
+  cidade!: string;
 }
 
-export const UsuarioSchema = SchemaFactory.createForClass(Usuario);
+export const EditoraSchema = SchemaFactory.createForClass(Editora);

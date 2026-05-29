@@ -1,10 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsInt,
-  IsArray,
-  IsOptional,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsArray, IsOptional } from 'class-validator';
 
 export class CreateLivroDto {
   @IsNotEmpty()
@@ -16,12 +10,16 @@ export class CreateLivroDto {
   isbn!: string;
 
   @IsArray()
-  @IsInt({ each: true })
+  @IsString({ each: true })
   @IsOptional()
-  autor_id?: number[];
+  autores?: string[];
 
   @IsArray()
-  @IsInt({ each: true })
+  @IsString({ each: true })
   @IsNotEmpty()
-  categoria_id!: number[];
+  categorias!: string[];
+
+  @IsNotEmpty()
+  @IsString()
+  editora!: string;
 }

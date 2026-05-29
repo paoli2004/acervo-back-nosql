@@ -1,60 +1,65 @@
-// import {
-//   Body,
-//   Controller,
-//   Get,
-//   Param,
-//   Post,
-//   Patch,
-//   Delete,
-//   ParseIntPipe,
-// } from '@nestjs/common';
-// import { EditorasService } from './editoras.service';
-// import { CreateEditoraDto } from './dto/createEditora.dto';
-// import { UpdateEditoraDto } from './dto/updateEditora.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Patch,
+  Delete,
+} from '@nestjs/common';
+import { EditorasService } from './editoras.service';
+import { CreateEditoraDto } from './dto/createEditora.dto';
+import { UpdateEditoraDto } from './dto/updateEditora.dto';
 
-// import { Editoras } from './entities/editoras.entity';
+@Controller('editoras')
+export class EditorasController {
+  constructor(private readonly editorasService: EditorasService) {}
 
-// @Controller('editoras')
-// export class EditorasController {
-//   constructor(private readonly editorasService: EditorasService) {}
+  @Get(':editoraId')
+  async findEditora(@Param('editoraId') editoraId: string) {
+    return this.editorasService.findEditora({ _id: editoraId });
+  }
 
-//   @Post()
-//   async createEditora(@Body() createEditora: CreateEditoraDto) {
-//     await this.editorasService.createEditora(createEditora);
+  @Get()
+  async findAllEditoras() {
+    return this.editorasService.findAllEditoras();
+  }
 
-//     return {
-//       message: 'Editora criada com sucesso',
-//     };
-//   }
+  @Post()
+  async createEditora(@Body() createEditora: CreateEditoraDto) {
+    const newPublisher =
+      await this.editorasService.createEditora(createEditora);
 
-//   @Patch(':id')
-//   async updateEditora(
-//     @Param('id', ParseIntPipe) id: number,
-//     @Body() updateEditora: UpdateEditoraDto,
-//   ) {
-//     await this.editorasService.updateEditora(id, updateEditora);
+    return {
+      message: 'Editora criada com sucesso',
+      editora: newPublisher,
+    };
+  }
 
-//     return {
-//       message: 'Editora atualizada com sucesso',
-//     };
-//   }
+  @Patch(':editoraId')
+  async findOneAndUpdateEditora(
+    @Param('editoraId') editoraId: string,
+    @Body() updateEditora: UpdateEditoraDto,
+  ) {
+    const updatedPublisher = await this.editorasService.findOneAndUpdateEditora(
+      { _id: editoraId },
+      updateEditora,
+    );
 
-//   @Get(':id')
-//   async getEditoraById(@Param('id', ParseIntPipe) id: number) {
-//     return this.editorasService.getEditoraById(id);
-//   }
+    return {
+      message: 'Editora atualizada com sucesso',
+      editora: updatedPublisher,
+    };
+  }
 
-//   @Get()
-//   async getAllEditoras() {
-//     return this.editorasService.getAllEditoras();
-//   }
+  @Delete(':editoraId')
+  async deleteEditora(@Param('editoraId') editoraId: string) {
+    await this.editorasService.deleteEditora({
+      _id: editoraId,
+    });
 
-//   @Delete(':id')
-//   async removeAutor(@Param('id', ParseIntPipe) id: number) {
-//     await this.editorasService.removeEditora(id);
-
-//     return {
-//       message: 'Editora removida com sucesso',
-//     };
-//   }
-// }
+    return {
+      message: 'Editora removida com sucesso',
+    };
+  }
+}

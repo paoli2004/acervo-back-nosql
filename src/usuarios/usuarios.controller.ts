@@ -16,12 +16,12 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Get(':usuarioId')
-  async getUsuarioById(@Param('usuarioId') usuarioId: string) {
+  async findUsuario(@Param('usuarioId') usuarioId: string) {
     return this.usuariosService.findUsuario({ _id: usuarioId });
   }
 
   @Get()
-  async getAllUsuarios() {
+  async findAllUsuarios() {
     return this.usuariosService.findAllUsuarios();
   }
 
@@ -36,7 +36,7 @@ export class UsuariosController {
   }
 
   @Patch(':usuarioId')
-  async updateUsuario(
+  async findOneAndUpdateUsuario(
     @Param('usuarioId') usuarioId: string,
     @Body() updateUsuario: UpdateUsuarioDto,
   ) {
@@ -52,12 +52,13 @@ export class UsuariosController {
   }
 
   @Delete(':usuarioId')
-  async removeUsuario(@Param('usuarioId') usuarioId: string) {
-    await this.usuariosService.deleteUsuario({ _id: usuarioId });
+  async deleteUsuario(@Param('usuarioId') usuarioId: string) {
+    await this.usuariosService.deleteUsuario({
+      _id: usuarioId,
+    });
 
     return {
       message: 'Usuário removido com sucesso',
-      usuario: { _id: usuarioId },
     };
   }
 }

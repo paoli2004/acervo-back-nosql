@@ -1,76 +1,128 @@
-// import { Injectable, NotFoundException } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Repository } from 'typeorm';
-// import { Categorias } from './entities/categorias.entity';
-// import { CreateCategoriaDto } from './dto/createCategoria.dto';
-// import { UpdateCategoriaDto } from './dto/updateCategoria.dto';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Categoria, CategoriaDocument } from './schemas/categoria.schema';
+import { CreateCategoriaDto } from './dto/createCategoria.dto';
+import { UpdateCategoriaDto } from './dto/updateCategoria.dto';
 
-// @Injectable()
-// export class CategoriasService {
-//   constructor(
-//     @InjectRepository(Categorias)
-//     private categoriasRepository: Repository<Categorias>,
-//   ) {}
+type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
-//   /**
-//    * Insere uma nova categoria.
-//    * @param createCategoria - Dados da categoria.
-//    * @returns Categoria criada.
-//    */
-//   async createCategoria(
-//     createCategoria: CreateCategoriaDto,
-//   ): Promise<Categorias> {
-//     return this.categoriasRepository.save(createCategoria);
-//   }
+@Injectable()
+export class CategoriasService {
+  constructor(
+    @InjectModel(Categoria.name)
+    private readonly categoriaModel: Model<CategoriaDocument>,
+  ) {}
 
-//   /**
-//    * Atualiza uma categoria existente.
-//    * @param id - ID do categoria.
-//    * @param updateCategoria - Dados para atualização da categoria.
-//    * @returns Categoria atualizada.
-//    */
-//   async updateCategoria(
-//     id: number,
-//     updateCategoria: UpdateCategoriaDto,
-//   ): Promise<Categorias> {
-//     const categoria = await this.getCategoriaById(id);
+  /**
+   * Retorna uma única categoria baseado em um filtro de busca.
+   * @param categoriaFilterQuery Objeto de filtro para encontrar a categoria (ex: { _id: id } ou { nome: 'romance' }).
+   * @returns Categoria encontrada.
+   * @throws {BadRequestException} Se o filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se nenhuma categoria corresponder ao filtro.
+   */
+  async findCategoria(
+    categoriaFilterQuery: FilterQuery<Categoria>,
+  ): Promise<Categoria> {
+    if (
+      !categoriaFilterQuery ||
+      Object.keys(categoriaFilterQuery).length === 0
+    ) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//     if (!categoria) {
-//       throw new NotFoundException('Categoria não encontrada');
-//     }
+    const categoria = await this.categoriaModel
+      .findOne(categoriaFilterQuery)
+      .exec();
 
-//     Object.assign(categoria, updateCategoria);
+    if (!categoria) {
+      throw new NotFoundException('Categoria não encontrada');
+    }
+    return categoria;
+  }
 
-//     return this.categoriasRepository.save(categoria);
-//   }
+  /**
+   * Retorna uma lista de categorias cadastradas, permitindo aplicar filtros opcionais.
+   * @param categoriaFilterQuery Filtro opcional de busca (ex: { nome: 'Ana' }). Se omitido, traz todos.
+   * @returns Array de categorias.
+   */
+  async findAllCategorias(
+    categoriaFilterQuery?: FilterQuery<Categoria>,
+  ): Promise<Categoria[]> {
+    return this.categoriaModel.find(categoriaFilterQuery).exec();
+  }
 
-//   /**
-//    * Retorna uma categoria.
-//    * @param id - ID da categoria.
-//    * @returns Categoria encontrada.
-//    */
-//   async getCategoriaById(id: number): Promise<Categorias | null> {
-//     if (!id) {
-//       throw new NotFoundException('Categoria não encontrada');
-//     }
-//     return this.categoriasRepository.findOne({ where: { id } });
-//   }
+  /**
+   * Cria e registra uma nova categoria no banco de dados.
+   * @param createCategoriaDto Objeto contendo os dados de criação validados da categoria (nome, descrição, etc).
+   * @returns Documento da categoria recém-criada.
+   */
+  async createCategoria(
+    createCategoriaDto: CreateCategoriaDto,
+  ): Promise<Categoria> {
+    const newCategory = new this.categoriaModel(createCategoriaDto);
+    return newCategory.save();
+  }
 
-//   /**
-//    * Retorna todos os categorias registrados.
-//    * @returns Lista de categorias.
-//    */
-//   async getAllCategorias(): Promise<Categorias[]> {
-//     return this.categoriasRepository.find({
-//       order: { id: 'ASC' },
-//     });
-//   }
+  /**
+   * Localiza uma categoria por um filtro e aplica as atualizações fornecidas.
+   * @param categoriaFilterQuery Objeto de filtro para identificar a categoria a ser atualizada (ex: { _id: id }).
+   * @param updateCategoriaDto Objeto contendo os campos que serão modificados (parcial ou completo).
+   * @returns documento da categoria atualizada.
+   * @throws {BadRequestException} Se o filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se a categoria não for encontrada para a atualização.
+   */
+  async findOneAndUpdateCategoria(
+    categoriaFilterQuery: FilterQuery<Categoria>,
+    updateCategoriaDto: UpdateCategoriaDto,
+  ): Promise<Categoria> {
+    if (
+      !categoriaFilterQuery ||
+      Object.keys(categoriaFilterQuery).length === 0
+    ) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//   async removeCategoria(id: number): Promise<void> {
-//     const categoria = await this.getCategoriaById(id);
-//     if (!categoria) {
-//       throw new NotFoundException('Categoria não encontrada');
-//     }
-//     await this.categoriasRepository.remove(categoria);
-//   }
-// }
+    const updatedCategory = await this.categoriaModel
+      .findOneAndUpdate(categoriaFilterQuery, updateCategoriaDto, {
+        new: true,
+      })
+      .exec();
+
+    if (!updatedCategory) {
+      throw new NotFoundException('Categoria não encontrada para atualização');
+    }
+
+    return updatedCategory;
+  }
+
+  /**
+   * Remove uma categoria do banco de dados baseado em um filtro de busca.
+   * @param categoriaFilterQuery Objeto de filtro para identificar a categoria a ser removida (ex: { _id: id }).
+   * @returns void
+   * @throws {BadRequestException} Se o filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se a categoria não for encontrada para a remoção.
+   */
+  async deleteCategoria(
+    categoriaFilterQuery: FilterQuery<Categoria>,
+  ): Promise<void> {
+    if (
+      !categoriaFilterQuery ||
+      Object.keys(categoriaFilterQuery).length === 0
+    ) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
+
+    const deletedCategory = await this.categoriaModel
+      .findOneAndDelete(categoriaFilterQuery)
+      .exec();
+
+    if (!deletedCategory) {
+      throw new NotFoundException('Categoria não encontrada para exclusão');
+    }
+  }
+}

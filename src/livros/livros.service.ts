@@ -1,243 +1,295 @@
-// import {
-//   ConflictException,
-//   Injectable,
-//   NotFoundException,
-// } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Not, Repository } from 'typeorm';
-// import { CreateLivroDto } from './dto/createLivro.dto';
-// import { Livros } from './entities/livros.entity';
-// import { Autores } from '../autores/entities/autores.entity';
-// import { AutoresService } from '../autores/autores.service';
-// import { CategoriasService } from '../categorias/categorias.service';
-// import { UpdateLivroDto } from './dto/updateLivro.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { Livro, LivroDocument } from './schemas/livro.schema';
+import {
+  Exemplar,
+  ExemplarDocument,
+} from '../exemplares/schemas/exemplar.schema';
+import { CreateLivroDto } from './dto/createLivro.dto';
+import { UpdateLivroDto } from './dto/updateLivro.dto';
+import { CategoriasService } from '../categorias/categorias.service';
+import { AutoresService } from '../autores/autores.service';
+import { EditorasService } from '../editoras/editoras.service';
 
-// @Injectable()
-// export class LivrosService {
-//   constructor(
-//     @InjectRepository(Livros)
-//     private readonly livrosRepository: Repository<Livros>,
-//     private readonly AutoresService: AutoresService,
-//     private readonly CategoriasService: CategoriasService,
-//   ) {}
+type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
-//   /**
-//    *Executa uma Promise que busca uma entidade e lança erro caso não encontre.
-//    *
-//    * @template T Tipo da entidade esperada
-//    * @param promise Promise que retorna a entidade ou null (ex: findOne do TypeORM)
-//    * @param message Mensagem de erro caso a entidade não seja encontrada
-//    * @returns A entidade encontrada (garantido que não é null)
-//    */
-//   private async findOrFail<T>(
-//     promise: Promise<T | null>,
-//     message: string,
-//   ): Promise<T> {
-//     const result = await promise;
+@Injectable()
+export class LivrosService {
+  constructor(
+    @InjectModel(Livro.name)
+    private readonly livroModel: Model<LivroDocument>,
+    @InjectModel(Exemplar.name)
+    private readonly exemplarModel: Model<ExemplarDocument>,
+    private readonly categoriasService: CategoriasService,
+    private readonly autoresService: AutoresService,
+    private readonly editorasService: EditorasService,
+  ) {}
 
-//     if (!result) {
-//       throw new NotFoundException(message);
-//     }
+  /**
+   * Executa uma Promise que busca uma entidade e lança erro caso não encontre.
+   *
+   * @template T Tipo da entidade esperada
+   * @param promise Promise que retorna a entidade ou null (ex: findOne do Mongoose)
+   * @param message Mensagem de erro caso a entidade não seja encontrada
+   * @returns A entidade encontrada (garantido que não é null)
+   */
+  private async findOrFail<T>(
+    promise: Promise<T | null>,
+    message: string,
+  ): Promise<T> {
+    const result = await promise;
 
-//     return result;
-//   }
+    if (!result) {
+      throw new NotFoundException(message);
+    }
 
-//   /**
-//    * Insere um novo livro.
-//    * @param createLivro
-//    * @returns Livro criado.
-//    */
-//   async createLivro(createLivro: CreateLivroDto): Promise<void> {
-//     const isbnAlreadyExist = await this.livrosRepository.findOne({
-//       where: { isbn: createLivro.isbn },
-//     });
+    return result;
+  }
 
-//     if (isbnAlreadyExist) {
-//       throw new ConflictException(
-//         'Já existe um livro cadastrado com este ISBN.',
-//       );
-//     }
+  /**
+   * Retorna um livro.
+   * @param livroFilterQuery Objeto de filtro para encontrar o livro (ex: { _id: id }).
+   * @returns Livro encontrado.
+   */
+  async findLivro(
+    livroFilterQuery: FilterQuery<Livro>,
+  ): Promise<LivroDocument> {
+    const livro = await this.findOrFail(
+      this.livroModel
+        .findOne(livroFilterQuery)
+        .populate('autores')
+        .populate('categorias')
+        .populate('editora')
+        .exec(),
+      'Livro não encontrado',
+    );
 
-//     const categorias = await Promise.all(
-//       createLivro.categoria_id.map((id) =>
-//         this.findOrFail(
-//           this.CategoriasService.getCategoriaById(id),
-//           `Categoria ${id} não encontrada`,
-//         ),
-//       ),
-//     );
+    return livro;
+  }
 
-//     const autores = createLivro.autor_id?.length
-//       ? await Promise.all(
-//           createLivro.autor_id.map((id) =>
-//             this.findOrFail(
-//               this.AutoresService.getAutorById(id),
-//               `Autor ${id} não encontrado`,
-//             ),
-//           ),
-//         )
-//       : [];
+  /**
+   * Realiza uma busca avançada e dinâmica de livros baseada em filtros.
+   * Varre a coleção de livros aplicando filtros opcionais e verifica na coleção
+   * de exemplares se existe alguma cópia física disponível para empréstimo.
+   *
+   * @param params Objeto contendo os critérios de busca opcionais.
+   * @param params.titulo Termo para busca parcial no título do livro (Case-Insensitive).
+   * @param params.autor_id ID alfanumérico (ObjectId) do autor para filtragem.
+   * @param params.categoria_id ID alfanumérico (ObjectId) da categoria para filtragem.
+   * @param params.onlyDisponiveis Se true, retorna apenas livros que possuem exemplares disponíveis.
+   * @returns Array de objetos customizados contendo os dados do livro e o status de disponibilidade.
+   */
+  async buscarAvancado(params: {
+    titulo?: string;
+    autor_id?: string;
+    categoria_id?: string;
+    onlyDisponiveis?: boolean;
+  }): Promise<any[]> {
+    const query: any = {};
 
-//     const livro = this.livrosRepository.create({
-//       titulo: createLivro.titulo,
-//       isbn: createLivro.isbn,
-//       autor: autores,
-//       categoria: categorias,
-//     });
+    if (params.titulo) query.titulo = { $regex: params.titulo, $options: 'i' };
+    if (params.autor_id) query.autores = params.autor_id;
+    if (params.categoria_id) query.categorias = params.categoria_id;
 
-//     await this.livrosRepository.save(livro);
-//   }
+    const livros = await this.livroModel
+      .find(query)
+      .populate('autores')
+      .populate('categorias')
+      .populate('editora')
+      .exec();
 
-//   async updateLivro(id: number, updateLivro: UpdateLivroDto): Promise<void> {
-//     const livro = await this.findOrFail(
-//       this.getLivroById(id),
-//       'Livro não encontrado',
-//     );
+    const livrosComDisponibilidade = await Promise.all(
+      livros.map(async (livro) => {
+        const disponivel = await this.exemplarModel.exists({
+          livro: livro._id,
+          ehDisponivel: true,
+        });
+        return {
+          id: livro._id,
+          titulo: livro.titulo,
+          isbn: livro.isbn,
+          autores: livro.autores,
+          categorias: livro.categorias,
+          editora: livro.editora,
+          temExemplarDisponivel: !!disponivel,
+        };
+      }),
+    );
 
-//     if (updateLivro.isbn) {
-//       const isbnAlreadyExist = await this.livrosRepository.findOne({
-//         where: { isbn: updateLivro.isbn, id: Not(id) },
-//       });
+    if (params.onlyDisponiveis) {
+      return livrosComDisponibilidade.filter(
+        (livro) => livro.temExemplarDisponivel,
+      );
+    }
 
-//       if (isbnAlreadyExist) {
-//         throw new ConflictException(
-//           'Já existe um livro cadastrado com este ISBN.',
-//         );
-//       }
-//     }
+    return livrosComDisponibilidade;
+  }
 
-//     if (updateLivro.autor_id?.length) {
-//       livro.autor = await Promise.all(
-//         updateLivro.autor_id.map((autorId) =>
-//           this.findOrFail(
-//             this.AutoresService.getAutorById(autorId),
-//             `Autor ${autorId} não encontrado`,
-//           ),
-//         ),
-//       );
-//     }
+  /**
+   * Retorna uma lista de livros cadastrados, permitindo aplicar filtros opcionais.
+   * @param livroFilterQuery Filtro opcional de busca (ex: { titulo: 'Dom Casmurro' }). Se omitido, traz todos.
+   * @returns Array de livros.
+   */
+  async findAllLivros(livroFilterQuery?: FilterQuery<Livro>): Promise<Livro[]> {
+    return this.livroModel
+      .find(livroFilterQuery)
+      .populate('autores')
+      .populate('categorias')
+      .populate('editora')
+      .exec();
+  }
 
-//     if (updateLivro.categoria_id?.length) {
-//       livro.categoria = await Promise.all(
-//         updateLivro.categoria_id.map((catId) =>
-//           this.findOrFail(
-//             this.CategoriasService.getCategoriaById(catId),
-//             `Categoria ${catId} não encontrada`,
-//           ),
-//         ),
-//       );
-//     }
+  /**
+   * Cria um novo livro no sistema após validar o ISBN e a existência das categorias, autores e editora.
+   * @param createLivroDto Dados para criação do livro, incluindo arrays de IDs de categorias e autores.
+   * @returns Documento do livro recém-criado.
+   */
+  async createLivro(createLivroDto: CreateLivroDto): Promise<Livro> {
+    const isbnAlreadyExist = await this.livroModel.exists({
+      isbn: createLivroDto.isbn,
+    });
 
-//     Object.assign(livro, {
-//       titulo: updateLivro.titulo ?? livro.titulo,
-//       isbn: updateLivro.isbn ?? livro.isbn,
-//     });
+    if (isbnAlreadyExist) {
+      throw new ConflictException(
+        'Já existe um livro cadastrado com este ISBN.',
+      );
+    }
 
-//     await this.livrosRepository.save(livro);
-//   }
+    const categorias = await Promise.all(
+      createLivroDto.categorias.map((categoriaId) =>
+        this.findOrFail(
+          this.categoriasService.findCategoria({ _id: categoriaId }),
+          `Categoria ${categoriaId} não encontrada`,
+        ),
+      ),
+    );
 
-//   /**
-//    * Remove um livro.
-//    * @param id ID do livro.
-//    * @returns Promise<void>.
-//    */
-//   async removeLivro(id: number): Promise<void> {
-//     const livro = await this.findOrFail(
-//       this.getLivroById(id),
-//       'Livro não encontrado',
-//     );
+    const autores = createLivroDto.autores?.length
+      ? await Promise.all(
+          createLivroDto.autores.map((autorId) =>
+            this.findOrFail(
+              this.autoresService.findAutor({ _id: autorId }),
+              `Autor ${autorId} não encontrado`,
+            ),
+          ),
+        )
+      : [];
 
-//     await this.livrosRepository.remove(livro);
-//   }
+    const editora = await this.findOrFail(
+      this.editorasService.findEditora({ _id: createLivroDto.editora }),
+      `Editora ${createLivroDto.editora} não encontrada`,
+    );
 
-//   /**
-//    * Retorna todos os livros.
-//    * @returns Lista de livros.
-//    */
-//   async getAllLivros(): Promise<any[]> {
-//     const livros = await this.livrosRepository.find({
-//       order: { id: 'ASC' },
-//       relations: ['autor', 'categoria'],
-//     });
+    const newBook = await this.livroModel.create({
+      titulo: createLivroDto.titulo,
+      isbn: createLivroDto.isbn,
+      categorias: categorias.map((cat: any) => cat._id),
+      autores: autores.map((aut: any) => aut._id),
+      editora: (editora as any)._id,
+    });
 
-//     return livros.map((livro) => ({
-//       ...livro,
-//       autor: livro.autor || null,
-//       categoria: livro.categoria,
-//     }));
-//   }
+    return newBook;
+  }
 
-//   /**
-//    * Retorna um livro.
-//    * @param id ID do livro.
-//    * @returns Livro encontrado.
-//    */
-//   async getLivroById(id: number): Promise<any> {
-//     const livro = await this.livrosRepository.findOne({
-//       where: { id },
-//       relations: ['autor', 'categoria'],
-//     });
+  /**
+   * Atualiza um livro de forma parcial e dinâmica com base em um filtro de busca.
+   * Valida regras de negócio como duplicidade de ISBN e existência de autores/categorias/editora.
+   * @param livroFilterQuery Filtro para encontrar o livro que será atualizado.
+   * @param updateLivroDto Dados com as alterações parciais do livro.
+   * @returns Documento do livro já atualizado.
+   */
+  async findOneAndUpdateLivro(
+    livroFilterQuery: FilterQuery<Livro>,
+    updateLivroDto: UpdateLivroDto,
+  ): Promise<LivroDocument> {
+    if (!livroFilterQuery || Object.keys(livroFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//     if (!livro) {
-//       throw new NotFoundException('Livro não encontrado');
-//     }
+    const livro = await this.findLivro(livroFilterQuery);
 
-//     return {
-//       id: livro.id,
-//       titulo: livro.titulo,
-//       isbn: livro.isbn,
-//       autor: livro.autor || null,
-//       categoria: livro.categoria,
-//     };
-//   }
+    if (updateLivroDto.isbn && updateLivroDto.isbn !== livro.isbn) {
+      const isbnAlreadyExist = await this.livroModel.exists({
+        isbn: updateLivroDto.isbn,
+        _id: { $ne: livro._id },
+      });
 
-//   async buscarAvancado(params: {
-//     autor_id?: number;
-//     categoria_id?: number;
-//     onlyDisponiveis?: boolean;
-//   }): Promise<any[]> {
-//     const qb = this.livrosRepository
-//       .createQueryBuilder('livro')
-//       .leftJoinAndSelect('livro.autor', 'autor')
-//       .leftJoinAndSelect('livro.categoria', 'categoria')
-//       .leftJoinAndSelect('livro.exemplar', 'exemplar')
-//       .leftJoinAndSelect(
-//         'exemplar.emprestimos',
-//         'emprestimo',
-//         'emprestimo.ativo = :ativo',
-//         { ativo: true },
-//       );
+      if (isbnAlreadyExist) {
+        throw new ConflictException(
+          'Já existe um livro cadastrado com este ISBN.',
+        );
+      }
+    }
 
-//     if (params.autor_id) {
-//       qb.andWhere('autor.id = :autor_id', { autor_id: params.autor_id });
-//     }
+    if (updateLivroDto.autores?.length) {
+      const autores = await Promise.all(
+        updateLivroDto.autores.map((autorId) =>
+          this.findOrFail(
+            this.autoresService.findAutor({ _id: autorId }),
+            `Autor ${autorId} não encontrado`,
+          ),
+        ),
+      );
+      livro.autores = autores.map((aut: any) => aut._id);
+    }
 
-//     if (params.categoria_id) {
-//       qb.andWhere('categoria.id = :categoria_id', {
-//         categoria_id: params.categoria_id,
-//       });
-//     }
+    if (updateLivroDto.categorias?.length) {
+      const categorias = await Promise.all(
+        updateLivroDto.categorias.map((categoriaId) =>
+          this.findOrFail(
+            this.categoriasService.findCategoria({ _id: categoriaId }),
+            `Categoria ${categoriaId} não encontrada`,
+          ),
+        ),
+      );
+      livro.categorias = categorias.map((cat: any) => cat._id);
+    }
 
-//     if (params.onlyDisponiveis) {
-//       qb.andWhere('exemplar.id IS NOT NULL').andWhere(
-//         'emprestimo.ativo IS NOT TRUE',
-//       );
-//     }
+    if (updateLivroDto.editora) {
+      const editora = await this.findOrFail(
+        this.editorasService.findEditora({ _id: updateLivroDto.editora }),
+        `Editora ${updateLivroDto.editora} não encontrada`,
+      );
+      livro.editora = (editora as any)._id;
+    }
 
-//     const livros = await qb.orderBy('livro.id', 'ASC').getMany();
+    return this.findOrFail(
+      this.livroModel
+        .findOneAndUpdate(
+          livroFilterQuery,
+          {
+            titulo: updateLivroDto.titulo ?? livro.titulo,
+            isbn: updateLivroDto.isbn ?? livro.isbn,
+            autores: livro.autores,
+            categorias: livro.categorias,
+            editora: livro.editora,
+          },
+          { new: true },
+        )
+        .exec(),
+      'Livro não encontrado para atualização',
+    );
+  }
 
-//     return livros.map((livro) => ({
-//       id: livro.id,
-//       titulo: livro.titulo,
-//       isbn: livro.isbn,
-//       autor: livro.autor ?? [],
-//       categoria: livro.categoria ?? [],
-//       temExemplarDisponivel:
-//         (livro.exemplar?.length ?? 0) > 0 &&
-//         livro.exemplar.some(
-//           (e: any) =>
-//             e.id != null && !e.emprestimos?.some((emp: any) => emp.ativo),
-//         ),
-//     }));
-//   }
-// }
+  /**
+   * Remove um livro.
+   * @param livroFilterQuery Objeto de filtro para identificar o livro a ser removido (ex: { _id: id }).
+   * @returns Promise<void>.
+   */
+  async deleteLivro(livroFilterQuery: FilterQuery<Livro>): Promise<void> {
+    if (!livroFilterQuery || Object.keys(livroFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
+
+    await this.findOrFail(
+      this.livroModel.findOneAndDelete(livroFilterQuery).exec(),
+      'Livro não encontrado para remoção',
+    );
+  }
+}

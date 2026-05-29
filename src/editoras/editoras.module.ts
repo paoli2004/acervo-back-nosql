@@ -1,13 +1,15 @@
-// import { Module } from '@nestjs/common';
-// import { TypeOrmModule } from '@nestjs/typeorm';
-// import { Editoras } from './entities/editoras.entity';
-// import { EditorasService } from './editoras.service';
-// import { EditorasController } from './editoras.controller';
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Editora, EditoraSchema } from './schemas/editora.schema';
+import { EditorasController } from './editoras.controller';
+import { EditorasService } from './editoras.service';
 
-// @Module({
-//   imports: [TypeOrmModule.forFeature([Editoras])],
-//   controllers: [EditorasController],
-//   providers: [EditorasService],
-//   exports: [EditorasService],
-// })
-// export class EditorasModule {}
+@Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Editora.name, schema: EditoraSchema }]),
+  ],
+  controllers: [EditorasController],
+  providers: [EditorasService],
+  exports: [EditorasService],
+})
+export class EditorasModule {}

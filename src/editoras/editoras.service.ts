@@ -1,72 +1,111 @@
-// import { Injectable, NotFoundException } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Repository } from 'typeorm';
-// import { Editoras } from './entities/editoras.entity';
-// import { CreateEditoraDto } from './dto/createEditora.dto';
-// import { UpdateEditoraDto } from './dto/updateEditora.dto';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { Editora } from './schemas/editora.schema';
+import { CreateEditoraDto } from './dto/createEditora.dto';
+import { UpdateEditoraDto } from './dto/updateEditora.dto';
 
-// @Injectable()
-// export class EditorasService {
-//   constructor(
-//     @InjectRepository(Editoras)
-//     private editorasRepository: Repository<Editoras>,
-//   ) {}
+type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
-//   /**
-//    * Insere um nova editora.
-//    * @param createEditora - Dados da editora.
-//    * @returns Editora criada.
-//    */
-//   async createEditora(createEditora: CreateEditoraDto): Promise<Editoras> {
-//     return this.editorasRepository.save(createEditora);
-//   }
+@Injectable()
+export class EditorasService {
+  constructor(
+    @InjectModel(Editora.name)
+    private editorasModel: Model<Editora>,
+  ) {}
 
-//   /**
-//    * Atualiza uma editora existente.
-//    * @param id - ID da editora.
-//    * @param updateEditora - Dados para atualização da editora.
-//    * @returns Editora atualizada.
-//    */
-//   async updateEditora(
-//     id: number,
-//     updateEditora: UpdateEditoraDto,
-//   ): Promise<Editoras | null> {
-//     await this.getEditoraById(id);
+  /**
+   * Retorna uma única editora baseada em um filtro de busca.
+   * @param editoraFilterQuery Objeto de filtro para encontrar a editora (ex: { _id: id } ou { nome }).
+   * @returns Editora encontrada.
+   * @throws {BadRequestException} Se o filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se nenhuma editora corresponder ao filtro.
+   */
+  async findEditora(
+    editoraFilterQuery: FilterQuery<Editora>,
+  ): Promise<Editora> {
+    if (!editoraFilterQuery || Object.keys(editoraFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//     await this.editorasRepository.update(id, updateEditora);
+    const editora = await this.editorasModel.findOne(editoraFilterQuery).exec();
 
-//     return this.getEditoraById(id);
-//   }
+    if (!editora) {
+      throw new NotFoundException('Editora não encontrada');
+    }
 
-//   /**
-//    * Retorna uma Editora.
-//    * @param id - ID da Editora.
-//    * @returns Editora encontrada.
-//    */
-//   async getEditoraById(id: number): Promise<Editoras | null> {
-//     const editora = await this.editorasRepository.findOne({ where: { id } });
+    return editora;
+  }
 
-//     if (!editora) {
-//       throw new NotFoundException('Editora não encontrada');
-//     }
+  /**
+   * Retorna uma lista de editoras cadastradas, permitindo aplicar filtros opcionais.
+   * @param editoraFilterQuery Filtro opcional de busca (ex: { nome: 'Editora Intrínseca' }). Se omitido, traz todos.
+   * @returns Array de editoras.
+   */
+  async findAllEditoras(
+    editoraFilterQuery?: FilterQuery<Editora>,
+  ): Promise<Editora[]> {
+    return this.editorasModel.find(editoraFilterQuery).exec();
+  }
 
-//     return editora;
-//   }
+  /**
+   * Cria e registra uma nova editora no banco de dados.
+   * @param createEditoraDto Objeto contendo os dados de criação validados da editora (nome, email, etc).
+   * @returns Documento da editora recém-criada.
+   */
+  async createEditora(createEditoraDto: CreateEditoraDto): Promise<Editora> {
+    const newPublisher = new this.editorasModel(createEditoraDto);
+    return newPublisher.save();
+  }
 
-//   /**
-//    * Retorna todos as Editoras registradas.
-//    * @returns Lista das Editoras.
-//    */
-//   async getAllEditoras(): Promise<Editoras[]> {
-//     return this.editorasRepository.find();
-//   }
+  /**
+   * Localiza uma editora por um filtro e aplica as atualizações fornecidas.
+   * @param editoraFilterQuery Objeto de filtro para identificar a editora a ser atualizada (ex: { _id: id }).
+   * @param updateEditoraDto Objeto contendo os campos que serão modificados (parcial ou completo).
+   * @returns documento da editora atualizada.
+   * @throws {BadRequestException} Se o filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se a editora não for encontrada para a atualização.
+   */
+  async findOneAndUpdateEditora(
+    editoraFilterQuery: FilterQuery<Editora>,
+    updateEditoraDto: UpdateEditoraDto,
+  ): Promise<Editora> {
+    if (!editoraFilterQuery || Object.keys(editoraFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//   /**
-//    * Remove uma Editora.
-//    * @param id ID da Editora.
-//    */
-//   async removeEditora(id: number): Promise<void> {
-//     const editora = await this.getEditoraById(id);
-//     if (editora) await this.editorasRepository.remove(editora);
-//   }
-// }
+    const updatedPublisher = await this.editorasModel
+      .findOneAndUpdate(editoraFilterQuery, updateEditoraDto, { new: true })
+      .exec();
+
+    if (!updatedPublisher) {
+      throw new NotFoundException('Editora não encontrada');
+    }
+    return updatedPublisher;
+  }
+
+  /**
+   * Remove uma editora do banco de dados baseado em um filtro de busca.
+   * @param editoraFilterQuery Objeto de filtro para identificar a editora a ser removida (ex: { _id: id }).
+   * @returns void
+   * @throws {BadRequestException} Se o filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se a editora não for encontrada para a remoção.
+   */
+  async deleteEditora(editoraFilterQuery: FilterQuery<Editora>): Promise<void> {
+    if (!editoraFilterQuery || Object.keys(editoraFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
+
+    const deletedPublisher = await this.editorasModel
+      .findOneAndDelete(editoraFilterQuery)
+      .exec();
+
+    if (!deletedPublisher) {
+      throw new NotFoundException('Editora não encontrada para remoção');
+    }
+  }
+}

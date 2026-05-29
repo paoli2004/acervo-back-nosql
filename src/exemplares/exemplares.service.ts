@@ -1,226 +1,203 @@
-// import {
-//   ConflictException,
-//   Injectable,
-//   NotFoundException,
-// } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Repository } from 'typeorm';
-// import { Exemplares } from './entities/exemplares.entity';
-// import { CreateExemplarDto } from './dto/createExemplar.dto';
-// import { UpdateExemplarDto } from './dto/updateExemplar.dto';
-// import { LivrosService } from '../livros/livros.service';
-// import { EditorasService } from '../editoras/editoras.service';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Model, Types } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { LivrosService } from '../livros/livros.service';
+import { Exemplar, ExemplarDocument } from './schemas/exemplar.schema';
+import { CreateExemplarDto } from './dto/createExemplar.dto';
+import { UpdateExemplarDto } from './dto/updateExemplar.dto';
 
-// @Injectable()
-// export class ExemplaresService {
-//   constructor(
-//     @InjectRepository(Exemplares)
-//     private exemplaresRepository: Repository<Exemplares>,
-//     private readonly livrosService: LivrosService,
-//     private readonly EditorasService: EditorasService,
-//   ) {}
+type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
-//   /**
-//    * Insere um novo exemplar.
-//    * @param createExemplar - Dados do exemplar.
-//    * @returns Exemplar criado.
-//    */
-//   async createExemplar(createExemplar: CreateExemplarDto): Promise<void> {
-//     const codigoPatrimonioAlreadyExist =
-//       await this.exemplaresRepository.findOne({
-//         where: { codigo_patrimonio: createExemplar.codigo_patrimonio },
-//       });
+@Injectable()
+export class ExemplaresService {
+  constructor(
+    @InjectModel(Exemplar.name)
+    private exemplarModel: Model<ExemplarDocument>,
+    private readonly livrosService: LivrosService,
+  ) {}
 
-//     if (codigoPatrimonioAlreadyExist) {
-//       throw new ConflictException(
-//         'Já existe um exemplar cadastrado com este código de patrimônio.',
-//       );
-//     }
+  /**
+   * Retorna um exemplar.
+   * @param exemplarFilterQuery Objeto de filtro para encontrar o exemplar (ex: { _id: id }).
+   * @returns Exemplar encontrado.
+   */
+  async findExemplar(
+    exemplarFilterQuery: FilterQuery<Exemplar>,
+  ): Promise<ExemplarDocument> {
+    const exemplar = await this.exemplarModel
+      .findOne(exemplarFilterQuery)
+      .populate('livro')
+      .populate('editora')
+      .exec();
 
-//     const editora = await this.EditorasService.getEditoraById(
-//       createExemplar.editora_id,
-//     );
-//     if (!editora) {
-//       throw new NotFoundException('Editora não encontrada');
-//     }
+    if (!exemplar) {
+      throw new NotFoundException('Exemplar não encontrado');
+    }
 
-//     const livro = await this.livrosService.getLivroById(
-//       createExemplar.livro_id,
-//     );
-//     if (!livro) {
-//       throw new NotFoundException('Livro não encontrado');
-//     }
+    return exemplar;
+  }
 
-//     const exemplar = this.exemplaresRepository.create({
-//       livro: livro,
-//       codigo_patrimonio: createExemplar.codigo_patrimonio,
-//       ano_publicacao: createExemplar.ano_publicacao,
-//       editora: editora,
-//     });
-//     await this.exemplaresRepository.save(exemplar);
-//   }
+  /**
+   * Retorna todos os exemplares registrados.
+   * Traz os dados do livro pai populados, junto com seus respectivos autores e editora.
+   * @returns Lista de exemplares com dados do acervo.
+   */
+  async findAllExemplares(): Promise<ExemplarDocument[]> {
+    return this.exemplarModel
+      .find()
+      .sort({ codigo_patrimonio: 1 })
+      .populate({
+        path: 'livro',
+        populate: [{ path: 'autores' }, { path: 'editora' }],
+      })
+      .exec();
+  }
 
-//   /**
-//    * Atualiza um exemplar existente.
-//    * @param id - ID do exemplar.
-//    * @param updateExemplar - Dados para atualização de exemplar.
-//    * @returns Exemplar atualizado.
-//    */
-//   async updateExemplar(
-//     id: number,
-//     updateExemplar: UpdateExemplarDto,
-//   ): Promise<void> {
-//     const exemplar = await this.getExemplarById(id);
+  /**
+   * Retorna os exemplares registrados que estão disponíveis na estante.
+   * Filtra diretamente pelo status booleano, trazendo os dados do livro, autores e editora.
+   * @returns Lista de exemplares disponíveis.
+   */
+  async findAllExemplaresDisponiveis(): Promise<ExemplarDocument[]> {
+    return this.exemplarModel
+      .find({ ehDisponivel: true })
+      .sort({ codigo_patrimonio: 1 })
+      .populate({
+        path: 'livro',
+        populate: [{ path: 'autores' }, { path: 'editora' }],
+      })
+      .exec();
+  }
 
-//     if (!exemplar) {
-//       throw new NotFoundException('Exemplar não encontrado');
-//     }
+  /**
+   * Retorna todos os exemplares de um livro.
+   * @param livroId - ID alfanumérico (ObjectId) do livro pai.
+   * @param onlyDisponiveis - Se true, retorna somente os exemplares disponíveis na estante.
+   * @returns Lista de exemplares de um livro.
+   */
+  async getExemplaresByLivro(
+    livroId: string,
+    onlyDisponiveis = false,
+  ): Promise<ExemplarDocument[]> {
+    const query: any = { livro: livroId };
 
-//     if (updateExemplar.livro_id) {
-//       const livro = await this.livrosService.getLivroById(
-//         updateExemplar.livro_id,
-//       );
-//       if (!livro) {
-//         throw new NotFoundException('Livro não encontrado');
-//       }
-//       exemplar.livro = livro;
-//     }
+    if (onlyDisponiveis) {
+      query.ehDisponivel = true;
+    }
 
-//     if (updateExemplar.editora_id) {
-//       const editora = await this.EditorasService.getEditoraById(
-//         updateExemplar.editora_id,
-//       );
-//       if (!editora) {
-//         throw new NotFoundException('Editora não encontrada');
-//       }
-//       exemplar.editora = editora;
-//     }
+    return this.exemplarModel
+      .find(query)
+      .sort({ codigo_patrimonio: 1 })
+      .populate({
+        path: 'livro',
+        populate: [{ path: 'autores' }, { path: 'editora' }],
+      })
+      .exec();
+  }
 
-//     Object.assign(exemplar, updateExemplar);
+  /**
+   * Insere um novo exemplar no sistema após validar o código de patrimônio e a existência do livro.
+   * @param createExemplarDto Dados para criação do exemplar.
+   * @returns Documento do exemplar recém-criado.
+   */
+  async createExemplar(
+    createExemplarDto: CreateExemplarDto,
+  ): Promise<ExemplarDocument> {
+    const codigoPatrimonioAlreadyExist = await this.exemplarModel.exists({
+      codigo_patrimonio: createExemplarDto.codigo_patrimonio,
+    });
 
-//     await this.exemplaresRepository.save(exemplar);
-//   }
+    if (codigoPatrimonioAlreadyExist) {
+      throw new ConflictException(
+        'Já existe um exemplar cadastrado com este código de patrimônio.',
+      );
+    }
 
-//   /**
-//    * Remove um exemplar.
-//    * @param id ID do exemplar.
-//    */
-//   async removeExemplar(id: number): Promise<void> {
-//     const exemplar = await this.getExemplarById(id);
+    await this.livrosService.findLivro({ _id: createExemplarDto.livro });
 
-//     if (!exemplar) {
-//       throw new NotFoundException('Exemplar não encontrado');
-//     }
+    const newExemplary = await this.exemplarModel.create({
+      codigo_patrimonio: createExemplarDto.codigo_patrimonio,
+      ano_publicacao: createExemplarDto.ano_publicacao,
+      livro: new Types.ObjectId(createExemplarDto.livro),
+    });
 
-//     await this.exemplaresRepository.remove(exemplar);
-//   }
+    return newExemplary;
+  }
 
-//   /**
-//    * Retorna um exemplar.
-//    * @param id - ID do exemplar.
-//    * @returns Exemplar encontrado.
-//    */
-//   async getExemplarById(id: number): Promise<any> {
-//     const exemplar = await this.exemplaresRepository.findOne({
-//       where: { id },
-//       relations: ['livro', 'editora'],
-//     });
+  /**
+   * Atualiza um exemplar de forma parcial e dinâmica com base em um filtro de busca.
+   * @param exemplarFilterQuery Filtro para encontrar o exemplar que será atualizado (ex: { _id: id }).
+   * @param updateExemplarDto Dados com as alterações parciais do exemplar.
+   * @returns Documento do exemplar já atualizado.
+   */
+  async findOneAndUpdateExemplar(
+    exemplarFilterQuery: FilterQuery<Exemplar>,
+    updateExemplarDto: UpdateExemplarDto,
+  ): Promise<ExemplarDocument> {
+    if (!exemplarFilterQuery || Object.keys(exemplarFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//     if (!exemplar) {
-//       throw new NotFoundException('Exemplar não encontrado');
-//     }
+    const exemplar = await this.exemplarModel
+      .findOne(exemplarFilterQuery)
+      .exec();
 
-//     return {
-//       id: exemplar.id,
-//       livro: exemplar.livro,
-//       codigo_patrimonio: exemplar.codigo_patrimonio,
-//       ano_publicacao: exemplar.ano_publicacao,
-//       editora: exemplar.editora,
-//     };
-//   }
+    if (!exemplar) {
+      throw new NotFoundException('Exemplar não encontrado');
+    }
 
-//   /**
-//    * Retorna todos os exemplares registrados.
-//    * @returns Lista de exemplares.
-//    */
-//   async getAllExemplares(): Promise<any[]> {
-//     const exemplares = await this.exemplaresRepository.find({
-//       order: { id: 'ASC' },
-//       relations: ['livro', 'livro.autor', 'editora'],
-//     });
+    if (updateExemplarDto.livro) {
+      await this.livrosService.findLivro({ _id: updateExemplarDto.livro });
+    }
 
-//     return exemplares.map((exemplar) => ({
-//       ...exemplar,
-//       livro: {
-//         ...exemplar.livro,
-//         autores: exemplar.livro?.autor ?? [],
-//       },
-//       editora: exemplar.editora,
-//     }));
-//   }
+    const updatedExemplary = await this.exemplarModel
+      .findOneAndUpdate(
+        exemplarFilterQuery,
+        {
+          livro: updateExemplarDto.livro
+            ? new Types.ObjectId(updateExemplarDto.livro)
+            : exemplar.livro,
+          ano_publicacao:
+            updateExemplarDto.ano_publicacao ?? exemplar.ano_publicacao,
+          codigo_patrimonio:
+            updateExemplarDto.codigo_patrimonio ?? exemplar.codigo_patrimonio,
+        },
+        { new: true },
+      )
+      .exec();
 
-//   /**
-//    * Retorna os exemplares registrados que não possuem emprestimo ativo.
-//    * @returns Lista de exemplares.
-//    */
-//   async getExemplaresDisponiveis(): Promise<any[]> {
-//     const exemplares = await this.exemplaresRepository
-//       .createQueryBuilder('exemplar')
-//       .leftJoinAndSelect('exemplar.livro', 'livro')
-//       .leftJoinAndSelect('livro.autor', 'autor')
-//       .leftJoinAndSelect('exemplar.editora', 'editora')
-//       .leftJoin(
-//         'exemplar.emprestimos',
-//         'emprestimo',
-//         'emprestimo.ativo = :ativo',
-//         { ativo: true },
-//       )
-//       .where('emprestimo.id IS NULL')
-//       .orderBy('exemplar.id', 'ASC')
-//       .getMany();
+    if (!updatedExemplary) {
+      throw new NotFoundException('Exemplar não encontrado para atualização');
+    }
 
-//     return exemplares.map((exemplar) => ({
-//       ...exemplar,
-//       livro: {
-//         ...exemplar.livro,
-//         autores: exemplar.livro?.autor ?? [],
-//       },
-//       editora: exemplar.editora,
-//     }));
-//   }
+    return updatedExemplary;
+  }
 
-//   /**
-//    * Retorna todos os exemplares de um livro.
-//    *  @param onlyDisponiveis - se true, retorna somente os exemplares que nao possuem emprestimo ativo.
-//    * @returns Lista de exemplares de um livro.
-//    */
-//   async getExemplaresByLivro(
-//     livro_id: number,
-//     onlyDisponiveis = false,
-//   ): Promise<any[]> {
-//     const qb = this.exemplaresRepository
-//       .createQueryBuilder('exemplar')
-//       .leftJoinAndSelect('exemplar.livro', 'livro')
-//       .leftJoinAndSelect('exemplar.editora', 'editora')
-//       .where('livro.id = :livro_id', { livro_id });
+  /**
+   * Remove um exemplar do sistema com base em um filtro de busca.
+   * @param exemplarFilterQuery Filtro para encontrar o exemplar que será removido (ex: { _id: id }).
+   * @returns Documento do exemplar que foi removido.
+   */
+  async deleteExemplar(
+    exemplarFilterQuery: FilterQuery<Exemplar>,
+  ): Promise<ExemplarDocument> {
+    if (!exemplarFilterQuery || Object.keys(exemplarFilterQuery).length === 0) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
 
-//     if (onlyDisponiveis) {
-//       qb.leftJoin(
-//         'exemplar.emprestimos',
-//         'emprestimo',
-//         'emprestimo.ativo = :ativo',
-//         { ativo: true },
-//       ).andWhere('emprestimo.id IS NULL');
-//     }
+    const deletedExemplary = await this.exemplarModel
+      .findOneAndDelete(exemplarFilterQuery)
+      .exec();
 
-//     const exemplares = await qb.orderBy('exemplar.id', 'ASC').getMany();
+    if (!deletedExemplary) {
+      throw new NotFoundException('Exemplar não encontrado para remoção');
+    }
 
-//     return exemplares.map((exemplar) => ({
-//       id: exemplar.id,
-//       livro: exemplar.livro,
-//       codigo_patrimonio: exemplar.codigo_patrimonio,
-//       ano_publicacao: exemplar.ano_publicacao,
-//       editora: exemplar.editora,
-//     }));
-//   }
-// }
+    return deletedExemplary;
+  }
+}

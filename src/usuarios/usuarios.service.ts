@@ -1,4 +1,3 @@
-import * as mongoose from 'mongoose';
 import {
   Injectable,
   NotFoundException,
@@ -79,15 +78,15 @@ export class UsuariosService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    const usuarioAtualizado = await this.usuarioModel
-      .findOneAndUpdate(usuarioFilterQuery, updateUsuarioDto, { after: true })
+    const updatedUser = await this.usuarioModel
+      .findOneAndUpdate(usuarioFilterQuery, updateUsuarioDto, { new: true })
       .exec();
 
-    if (!usuarioAtualizado) {
+    if (!updatedUser) {
       throw new NotFoundException('Usuário não encontrado para atualização');
     }
 
-    return usuarioAtualizado;
+    return updatedUser;
   }
 
   /**
@@ -102,11 +101,11 @@ export class UsuariosService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    const resultado = await this.usuarioModel
+    const deletedUser = await this.usuarioModel
       .findOneAndDelete(usuarioFilterQuery)
       .exec();
 
-    if (!resultado) {
+    if (!deletedUser) {
       throw new NotFoundException('Usuário não encontrado para remoção');
     }
   }

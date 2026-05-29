@@ -1,14 +1,68 @@
-// import {
-//   ConflictException,
-//   Injectable,
-//   NotFoundException,
-// } from '@nestjs/common';
-// import { InjectRepository } from '@nestjs/typeorm';
-// import { Emprestimos } from './entities/emprestimos.entity';
-// import { Repository } from 'typeorm';
-// import { CreateEmprestimoDto } from './dto/createEmprestimo.dto';
-// import { UsuariosService } from '../usuarios/usuarios.service';
-// import { ExemplaresService } from '../exemplares/exemplares.service';
+import { Model } from 'mongoose';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Emprestimo, EmprestimoDocument } from './schemas/emprestimo.schema';
+import { UsuariosService } from '../usuarios/usuarios.service';
+
+type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
+
+@Injectable()
+export class EmprestimosService {
+  constructor(
+    @InjectModel(Emprestimo.name)
+    private readonly emprestimoModel: Model<EmprestimoDocument>,
+    private readonly usuariosService: UsuariosService,
+  ) {}
+
+  /**
+   *Executa uma Promise que busca uma entidade e lança erro caso não encontre.
+   *
+   * @template T Tipo da entidade esperada
+   * @param promise Promise que retorna a entidade ou null (ex: findOne do Mongoose)
+   * @param message Mensagem de erro caso a entidade não seja encontrada
+   * @returns A entidade encontrada (garantido que não é null)
+   */
+  private async findOrFail<T>(
+    promise: Promise<T | null>,
+    message: string,
+  ): Promise<T> {
+    const result = await promise;
+
+    if (!result) {
+      throw new NotFoundException(message);
+    }
+
+    return result;
+  }
+
+  async findEmprestimo(
+    emprestimoFilterQuery: FilterQuery<Emprestimo>,
+  ): Promise<Emprestimo> {
+    if (
+      !emprestimoFilterQuery ||
+      Object.keys(emprestimoFilterQuery).length === 0
+    ) {
+      throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
+    return this.findOrFail(
+      this.emprestimoModel.findOne(emprestimoFilterQuery).exec(),
+      'Empréstimo não encontrado',
+    );
+  }
+
+  async createEmprestimo(createEmprestimoDto: any): Promise<void> {
+    const usuario = await this.findOrFail(
+      this.usuariosService.findUsuario({ _id: createEmprestimoDto.usuario_id }),
+      'Usuário não encontrado',
+    );
+
+    // const exemplar =
+  }
+}
 
 // @Injectable()
 // export class EmprestimosService {
@@ -18,27 +72,6 @@
 //     private readonly usuariosService: UsuariosService,
 //     private readonly exemplaresService: ExemplaresService,
 //   ) {}
-
-//   /**
-//    *Executa uma Promise que busca uma entidade e lança erro caso não encontre.
-//    *
-//    * @template T Tipo da entidade esperada
-//    * @param promise Promise que retorna a entidade ou null (ex: findOne do TypeORM)
-//    * @param message Mensagem de erro caso a entidade não seja encontrada
-//    * @returns A entidade encontrada (garantido que não é null)
-//    */
-//   private async findOrFail<T>(
-//     promise: Promise<T | null>,
-//     message: string,
-//   ): Promise<T> {
-//     const result = await promise;
-
-//     if (!result) {
-//       throw new NotFoundException(message);
-//     }
-
-//     return result;
-//   }
 
 //   /**
 //    * Cria um novo emprestimo.

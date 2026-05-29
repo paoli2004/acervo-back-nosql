@@ -1,15 +1,19 @@
-// import { Module } from '@nestjs/common';
-// import { TypeOrmModule } from '@nestjs/typeorm';
-// import { Exemplares } from './entities/exemplares.entity';
-// import { ExemplaresController } from './exemplares.controller';
-// import { ExemplaresService } from './exemplares.service';
-// import { LivrosModule } from '../livros/livros.module';
-// import { EditorasModule } from '../editoras/editoras.module';
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Exemplar, ExemplarSchema } from './schemas/exemplar.schema';
+import { ExemplaresController } from './exemplares.controller';
+import { ExemplaresService } from './exemplares.service';
+import { LivrosModule } from '../livros/livros.module';
 
-// @Module({
-//   imports: [TypeOrmModule.forFeature([Exemplares]), LivrosModule, EditorasModule],
-//   controllers: [ExemplaresController],
-//   providers: [ExemplaresService],
-//   exports: [ExemplaresService],
-// })
-// export class ExemplaresModule {}
+@Module({
+  imports: [
+    MongooseModule.forFeature([
+      { name: Exemplar.name, schema: ExemplarSchema },
+    ]),
+    LivrosModule
+  ],
+  controllers: [ExemplaresController],
+  providers: [ExemplaresService],
+  exports: [ExemplaresService],
+})
+export class ExemplaresModule {}

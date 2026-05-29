@@ -1,72 +1,76 @@
-// import {
-//   Controller,
-//   Get,
-//   Post,
-//   Body,
-//   Param,
-//   Delete,
-//   Patch,
-//   ParseIntPipe,
-//   Query,
-// } from '@nestjs/common';
-// import { LivrosService } from './livros.service';
-// import { CreateLivroDto } from './dto/createLivro.dto';
-// import { UpdateLivroDto } from './dto/updateLivro.dto';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Patch,
+  Query,
+} from '@nestjs/common';
+import { LivrosService } from './livros.service';
+import { CreateLivroDto } from './dto/createLivro.dto';
+import { UpdateLivroDto } from './dto/updateLivro.dto';
 
-// @Controller('livros')
-// export class LivrosController {
-//   constructor(private readonly livrosService: LivrosService) {}
+@Controller('livros')
+export class LivrosController {
+  constructor(private readonly livrosService: LivrosService) {}
 
-//   @Post()
-//   async createLivro(@Body() createLivroDto: CreateLivroDto) {
-//     await this.livrosService.createLivro(createLivroDto);
+  @Get(':livroId')
+  async findLivro(@Param('livroId') livroId: string) {
+    return this.livrosService.findLivro({ _id: livroId });
+  }
 
-//     return {
-//       message: 'Livro criado com sucesso',
-//     };
-//   }
+  @Get('busca')
+  async buscarAvancado(
+    @Query('autores') autores?: string,
+    @Query('categorias') categorias?: string,
+    @Query('onlyDisponiveis') onlyDisponiveis?: string,
+  ): Promise<any[]> {
+    return this.livrosService.buscarAvancado({
+      autor_id: autores,
+      categoria_id: categorias,
+      onlyDisponiveis: onlyDisponiveis === 'true',
+    });
+  }
 
-//   @Patch(':id')
-//   async updateLivro(
-//     @Param('id', ParseIntPipe) id: number,
-//     @Body() updateLivroDto: UpdateLivroDto,
-//   ) {
-//     await this.livrosService.updateLivro(id, updateLivroDto);
+  @Get()
+  async findAllLivros() {
+    return this.livrosService.findAllLivros();
+  }
 
-//     return {
-//       message: 'Livro atualizado com sucesso',
-//     };
-//   }
+  @Post()
+  async createLivro(@Body() createLivroDto: CreateLivroDto) {
+    const newBook = await this.livrosService.createLivro(createLivroDto);
 
-//   @Delete(':id')
-//   async removeLivro(@Param('id', ParseIntPipe) id: number) {
-//     await this.livrosService.removeLivro(id);
+    return {
+      message: 'Livro criado com sucesso',
+      livro: newBook,
+    };
+  }
 
-//     return {
-//       message: 'Livro removido com sucesso',
-//     };
-//   }
+  @Patch(':livroId')
+  async findOneAndUpdateLivro(
+    @Param('livroId') livroId: string,
+    @Body() updateLivroDto: UpdateLivroDto,
+  ) {
+    const updatedBook = await this.livrosService.findOneAndUpdateLivro(
+      { _id: livroId },
+      updateLivroDto,
+    );
 
-//   @Get()
-//   async getAllLivros() {
-//     return this.livrosService.getAllLivros();
-//   }
+    return {
+      message: 'Livro atualizado com sucesso',
+      livro: updatedBook,
+    };
+  }
 
-//   @Get('busca')
-//   async buscarAvancado(
-//     @Query('autor_id') autor_id?: number,
-//     @Query('categoria_id') categoria_id?: number,
-//     @Query('onlyDisponiveis') onlyDisponiveis?: string,
-//   ): Promise<any[]> {
-//     return this.livrosService.buscarAvancado({
-//       autor_id: autor_id ? Number(autor_id) : undefined,
-//       categoria_id: categoria_id ? Number(categoria_id) : undefined,
-//       onlyDisponiveis: onlyDisponiveis === 'true',
-//     });
-//   }
+  @Delete(':livroId')
+  async deleteLivro(@Param('livroId') livroId: string) {
+    await this.livrosService.deleteLivro({ _id: livroId });
 
-//   @Get(':id')
-//   async getLivroById(@Param('id') id: number) {
-//     return this.livrosService.getLivroById(id);
-//   }
-// }
+    return {
+      message: 'Livro removido com sucesso',
+    };
+  }
+}
