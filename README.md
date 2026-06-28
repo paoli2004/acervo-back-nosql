@@ -139,7 +139,7 @@ yarn build        # build do projeto
 src/
  ├── autores/
  │    ├── dto/
- │    ├── entities/
+ │    ├── schemas/
  │    ├── autores.controller.ts
  │    ├── autores.service.ts
  │    └── autores.module.ts
