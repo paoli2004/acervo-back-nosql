@@ -1,14 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsNumber, IsBoolean } from 'class-validator';
+import { IsDate, IsNotEmpty, IsBoolean, IsString } from 'class-validator';
 
 export class CreateEmprestimoDto {
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  usuario_id!: number;
+  usuario!: string;
 
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  exemplar_id!: number;
+  exemplar!: string;
 
   @Type(() => Date)
   @IsDate()

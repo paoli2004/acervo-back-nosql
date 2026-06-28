@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Usuario } from '../../usuarios/schemas/usuario.schema';
 import { Types } from 'mongoose';
+import { Exemplar } from '../../exemplares/schemas/exemplar.schema';
 
 export type EmprestimoDocument = HydratedDocument<Emprestimo>;
 
@@ -24,7 +25,7 @@ export class Emprestimo {
     ref: 'Usuario',
     required: true,
   })
-  usuario!: Usuario;
+  usuario!: Types.ObjectId | Usuario;
 
   @Prop({ type: Date, default: Date.now })
   data_emprestimo!: Date;
@@ -35,12 +36,8 @@ export class Emprestimo {
   @Prop()
   ativo!: boolean;
 
-  // fazer a relação de exemplar
+  @Prop({ type: Types.ObjectId, ref: 'Exemplar', required: true })
+  exemplar!: Types.ObjectId | Exemplar;
 }
 
 export const EmprestimoSchema = SchemaFactory.createForClass(Emprestimo);
-
-//   // um empréstimo pertence a um exemplar, mas um exemplar pode ter muitos empréstimos
-//   @ManyToOne(() => Exemplares, (exemplares) => exemplares.emprestimos)
-//   @JoinColumn({ name: 'exemplar_id' })
-//   exemplar!: Exemplares;

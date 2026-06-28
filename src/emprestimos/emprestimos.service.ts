@@ -1,12 +1,15 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Emprestimo, EmprestimoDocument } from './schemas/emprestimo.schema';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { ExemplaresService } from '../exemplares/exemplares.service';
+import { CreateEmprestimoDto } from './dto/createEmprestimo.dto';
 
 type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
@@ -16,6 +19,7 @@ export class EmprestimosService {
     @InjectModel(Emprestimo.name)
     private readonly emprestimoModel: Model<EmprestimoDocument>,
     private readonly usuariosService: UsuariosService,
+    private readonly exemplaresService: ExemplaresService,
   ) {}
 
   /**
@@ -41,214 +45,186 @@ export class EmprestimosService {
 
   async findEmprestimo(
     emprestimoFilterQuery: FilterQuery<Emprestimo>,
-  ): Promise<Emprestimo> {
+  ): Promise<EmprestimoDocument> {
+    return this.findOrFail(
+      this.emprestimoModel
+        .findOne(emprestimoFilterQuery)
+        .populate('usuario')
+        .populate({
+          path: 'exemplar',
+          populate: [
+            {
+              path: 'livro',
+              populate: [
+                { path: 'autores' },
+                { path: 'categorias' },
+                { path: 'editora' },
+              ],
+            },
+          ],
+        })
+        .exec(),
+      'Empréstimo não encontrado',
+    );
+  }
+
+  async findAllEmprestimos(): Promise<EmprestimoDocument[]> {
+    return this.emprestimoModel
+      .find()
+      .populate('usuario')
+      .populate({
+        path: 'exemplar',
+        populate: [
+          {
+            path: 'livro',
+            populate: [
+              { path: 'autores' },
+              { path: 'categorias' },
+              { path: 'editora' },
+            ],
+          },
+        ],
+      })
+      .exec();
+  }
+
+  async createEmprestimo(
+    createEmprestimoDto: CreateEmprestimoDto,
+  ): Promise<EmprestimoDocument> {
+    const usuario = await this.findOrFail(
+      this.usuariosService.findUsuario({ _id: createEmprestimoDto.usuario }),
+      'Usuário não encontrado',
+    );
+
+    const exemplarEncontrado = await this.findOrFail(
+      this.exemplaresService.findExemplar({
+        _id: createEmprestimoDto.exemplar,
+      }),
+      'Exemplar não encontrado',
+    );
+
+    if (!exemplarEncontrado.ehDisponivel) {
+      throw new ConflictException('Este exemplar já está emprestado.');
+    }
+
+    const emprestimo = await this.emprestimoModel.create({
+      usuario: new Types.ObjectId(createEmprestimoDto.usuario),
+      exemplar: new Types.ObjectId(createEmprestimoDto.exemplar),
+      data_emprestimo: createEmprestimoDto.data_emprestimo ?? new Date(),
+      data_devolucao: createEmprestimoDto.data_devolucao,
+      ativo: true,
+    });
+
+    await this.exemplaresService.findOneAndUpdateExemplar(
+      { _id: exemplarEncontrado._id },
+      { ehDisponivel: false } as any,
+    );
+
+    return emprestimo;
+  }
+
+  async devolveExemplar(
+    emprestimoFilterQuery: FilterQuery<Emprestimo>,
+  ): Promise<EmprestimoDocument> {
+    const emprestimo = await this.findOrFail(
+      this.emprestimoModel.findOne(emprestimoFilterQuery).exec(),
+      'Empréstimo não encontrado',
+    );
+
+    if (!emprestimo.ativo) {
+      throw new ConflictException('Este empréstimo já foi devolvido.');
+    }
+
+    emprestimo.ativo = false;
+    await emprestimo.save();
+
+    await this.exemplaresService.findOneAndUpdateExemplar(
+      { _id: emprestimo.exemplar },
+      { ehDisponivel: true } as any,
+    );
+
+    return emprestimo;
+  }
+
+  async deleteEmprestimo(
+    emprestimoFilterQuery: FilterQuery<Emprestimo>,
+  ): Promise<EmprestimoDocument> {
     if (
       !emprestimoFilterQuery ||
       Object.keys(emprestimoFilterQuery).length === 0
     ) {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
-    return this.findOrFail(
-      this.emprestimoModel.findOne(emprestimoFilterQuery).exec(),
+
+    const emprestimo = await this.findOrFail(
+      this.emprestimoModel.findOneAndDelete(emprestimoFilterQuery).exec(),
       'Empréstimo não encontrado',
     );
+
+    return emprestimo;
   }
 
-  async createEmprestimo(createEmprestimoDto: any): Promise<void> {
-    const usuario = await this.findOrFail(
-      this.usuariosService.findUsuario({ _id: createEmprestimoDto.usuario_id }),
-      'Usuário não encontrado',
-    );
+  async buscarAvancado(params: {
+    livro?: string;
+    usuario?: string;
+    exemplar?: string;
+    data_inicio?: Date;
+    data_fim?: Date;
+    ativo?: boolean;
+  }): Promise<EmprestimoDocument[]> {
+    const query: any = {};
 
-    // const exemplar =
+    if (params.usuario) {
+      query.usuario = new Types.ObjectId(params.usuario);
+    }
+
+    if (params.exemplar) {
+      query.exemplar = new Types.ObjectId(params.exemplar);
+    }
+
+    if (params.data_inicio || params.data_fim) {
+      query.data_emprestimo = {};
+      if (params.data_inicio) {
+        query.data_emprestimo.$gte = new Date(params.data_inicio);
+      }
+      if (params.data_fim) {
+        query.data_emprestimo.$lte = new Date(params.data_fim);
+      }
+    }
+
+    if (params.ativo !== undefined) {
+      query.ativo = params.ativo;
+    }
+
+    const emprestimo = await this.emprestimoModel
+      .find(query)
+      .sort({ data_emprestimo: 1 })
+      .populate('usuario')
+      .populate({
+        path: 'exemplar',
+        populate: {
+          path: 'livro',
+          populate: [
+            { path: 'autores' },
+            { path: 'categorias' },
+            { path: 'editora' },
+          ],
+        },
+      })
+      .exec();
+
+    if (params.livro) {
+      return emprestimo.filter((e) => {
+        const exemplar = e.exemplar as any;
+        if (exemplar && exemplar.livro) {
+          const livroIdString =
+            exemplar.livro._id?.toString() || exemplar.livro.toString();
+          return livroIdString === params.livro;
+        }
+        return false;
+      });
+    }
+
+    return emprestimo;
   }
 }
-
-// @Injectable()
-// export class EmprestimosService {
-//   constructor(
-//     @InjectRepository(Emprestimos)
-//     private readonly emprestimosRepository: Repository<Emprestimos>,
-//     private readonly usuariosService: UsuariosService,
-//     private readonly exemplaresService: ExemplaresService,
-//   ) {}
-
-//   /**
-//    * Cria um novo emprestimo.
-//    * @param createEmprestimo Dados para criação do emprestimo.
-//    * @returns Promise que resolve quando o emprestimo é criado.
-//    */
-//   async createEmprestimo(createEmprestimo: CreateEmprestimoDto): Promise<void> {
-//     const usuario = await this.findOrFail(
-//       this.usuariosService.getUsuarioById(createEmprestimo.usuario_id),
-//       'Usuário não encontrado',
-//     );
-
-//     const exemplar = await this.findOrFail(
-//       this.exemplaresService.getExemplarById(createEmprestimo.exemplar_id),
-//       'Exemplar não encontrado',
-//     );
-
-//     const exemplarJaEmprestado = await this.emprestimosRepository.findOne({
-//       where: {
-//         exemplar: { id: createEmprestimo.exemplar_id },
-//         ativo: true,
-//       },
-//     });
-
-//     if (exemplarJaEmprestado) {
-//       throw new ConflictException('Este exemplar já está emprestado.');
-//     }
-
-//     const emprestimo = this.emprestimosRepository.create({
-//       usuario: usuario,
-//       exemplar: exemplar,
-//       data_emprestimo: createEmprestimo.data_emprestimo, // formato "2026-05-10"
-//       data_devolucao: createEmprestimo.data_devolucao, // formato "2026-05-20"
-//       ativo: true,
-//     });
-
-//     await this.emprestimosRepository.save(emprestimo);
-//   }
-
-//   async removeEmprestimo(id: number): Promise<void> {
-//     const emprestimo = await this.findOrFail(
-//       this.getEmprestimoById(id),
-//       'Emprestimo não encontrado',
-//     );
-
-//     await this.emprestimosRepository.remove(emprestimo);
-//   }
-
-//   /**
-//    * Retorna todos os emprestimos.
-//    * @returns Lista de emprestimos.
-//    */
-//   async getAllEmprestimos(): Promise<any[]> {
-//     const emprestimo = await this.emprestimosRepository.find({
-//       order: { id: 'ASC' },
-//       relations: ['usuario', 'exemplar.livro'],
-//     });
-
-//     return emprestimo.map((emprestimo) => ({
-//       ...emprestimo,
-//       usuario: emprestimo.usuario,
-//       exemplar: emprestimo.exemplar,
-//     }));
-//   }
-
-//   async devolveExemplar(id: number) {
-//     const emprestimo = await this.emprestimosRepository.findOne({
-//       where: { id },
-//       relations: ['usuario', 'exemplar.livro'],
-//     });
-
-//     if (!emprestimo) {
-//       throw new NotFoundException('Emprestimo não encontrado');
-//     }
-
-//     emprestimo.ativo = false;
-//     await this.emprestimosRepository.save(emprestimo);
-//   }
-
-//   /**
-//    * Retorna um emprestimo.
-//    * @param id ID do emprestimo.
-//    * @returns Emprestimo encontrado.
-//    */
-//   async getEmprestimoById(id: number): Promise<any> {
-//     const emprestimo = await this.emprestimosRepository.findOne({
-//       where: { id },
-//       relations: ['usuario', 'exemplar.livro'],
-//     });
-
-//     if (!emprestimo) {
-//       throw new NotFoundException('Emprestimo não encontrado');
-//     }
-
-//     return {
-//       id: emprestimo.id,
-//       usuario: emprestimo.usuario.nome,
-//       exemplar: emprestimo.exemplar.livro?.titulo,
-//       data_emprestimo: emprestimo.data_emprestimo,
-//       data_devolucao: emprestimo.data_devolucao,
-//     };
-//   }
-
-//   async buscarAvancado(params: {
-//     livro_id?: number;
-//     usuario_id?: number;
-//     exemplar_id?: number;
-//     data_inicio?: Date;
-//     data_fim?: Date;
-//     ativo?: boolean;
-//   }): Promise<any[]> {
-//     const qb = this.emprestimosRepository
-//       .createQueryBuilder('emprestimo')
-//       .innerJoinAndSelect('emprestimo.usuario', 'usuario')
-//       .innerJoinAndSelect('emprestimo.exemplar', 'exemplar')
-//       .innerJoinAndSelect('exemplar.livro', 'livro')
-//       .leftJoinAndSelect('livro.categoria', 'categoria');
-
-//     if (params.livro_id) {
-//       qb.andWhere('livro.id = :livro_id', { livro_id: params.livro_id });
-//     }
-
-//     if (params.usuario_id) {
-//       qb.andWhere('usuario.id = :usuario_id', {
-//         usuario_id: params.usuario_id,
-//       });
-//     }
-
-//     if (params.exemplar_id) {
-//       qb.andWhere('exemplar.id = :exemplar_id', {
-//         exemplar_id: params.exemplar_id,
-//       });
-//     }
-
-//     if (params.data_inicio && params.data_fim) {
-//       qb.andWhere(
-//         'emprestimo.data_emprestimo BETWEEN :data_inicio AND :data_fim',
-//         {
-//           data_inicio: params.data_inicio,
-//           data_fim: params.data_fim,
-//         },
-//       );
-//     } else if (params.data_inicio) {
-//       qb.andWhere('emprestimo.data_emprestimo >= :data_inicio', {
-//         data_inicio: params.data_inicio,
-//       });
-//     } else if (params.data_fim) {
-//       qb.andWhere('emprestimo.data_emprestimo <= :data_fim', {
-//         data_fim: params.data_fim,
-//       });
-//     }
-
-//     if (params.ativo !== undefined) {
-//       if (params.ativo) {
-//         qb.andWhere('emprestimo.ativo = true');
-//       } else {
-//         qb.andWhere('emprestimo.ativo = false');
-//       }
-//     }
-
-//     const emprestimos = await qb.orderBy('emprestimo.id', 'ASC').getMany();
-
-//     return emprestimos.map((e) => ({
-//       id: e.id,
-//       ativo: e.ativo,
-//       data_emprestimo: e.data_emprestimo,
-//       data_devolucao: e.data_devolucao,
-//       usuario: e.usuario,
-//       exemplar: {
-//         id: e.exemplar.id,
-//         codigo_patrimonio: e.exemplar.codigo_patrimonio,
-//         livro: {
-//           id: e.exemplar.livro.id,
-//           titulo: e.exemplar.livro.titulo,
-//           categoria: e.exemplar.livro.categoria ?? [],
-//         },
-//       },
-//     }));
-//   }
-// }

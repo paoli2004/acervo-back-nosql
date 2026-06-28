@@ -3,72 +3,74 @@ import {
   Get,
   Post,
   Body,
-  Delete,
   Param,
-  ParseIntPipe,
-  Patch,
+  Delete,
+  Put,
   Query,
 } from '@nestjs/common';
 import { EmprestimosService } from './emprestimos.service';
 import { CreateEmprestimoDto } from './dto/createEmprestimo.dto';
+import { EmprestimoDocument } from './schemas/emprestimo.schema';
 
 @Controller('emprestimos')
 export class EmprestimosController {
   constructor(private readonly emprestimosService: EmprestimosService) {}
 
-  @Get(':id')
-  async getEmprestimoById(@Param('emprestimoId') emprestimoId: string) {
+  @Get(':emprestimoId')
+  async findEmprestimo(
+    @Param('emprestimoId') emprestimoId: string,
+  ): Promise<EmprestimoDocument> {
     return this.emprestimosService.findEmprestimo({ _id: emprestimoId });
   }
 
-//   @Get()
-//   async getAllEmprestimos() {
-//     return this.emprestimosService.getAllEmprestimos();
-//   }
+  @Get()
+  async findAllEmprestimos(): Promise<EmprestimoDocument[]> {
+    return this.emprestimosService.findAllEmprestimos();
+  }
 
-  //   @Post()
-  //   async createEmprestimo(@Body() createEmprestimoDto: CreateEmprestimoDto) {
-  //     await this.emprestimosService.createEmprestimo(createEmprestimoDto);
+  @Post()
+  async create(@Body() createEmprestimoDto: CreateEmprestimoDto) {
+    const newEmprestimo =
+      await this.emprestimosService.createEmprestimo(createEmprestimoDto);
 
-  //     return {
-  //       message: 'Empréstimo criado com sucesso',
-  //     };
-  //   }
+    return {
+      message: 'Empréstimo criado com sucesso',
+      emprestimo: newEmprestimo,
+    };
+  }
 
-  //   @Patch(':id/devolucao')
-  //   async devolveEmprestivo(@Param('id', ParseIntPipe) id: number) {
-  //     await this.emprestimosService.devolveExemplar(id);
+  @Get('busca')
+  async buscarAvancado(
+    @Query('livro') livro?: string,
+    @Query('usuario') usuario?: string,
+    @Query('exemplar') exemplar?: string,
+    @Query('data_inicio') data_inicio?: Date,
+    @Query('data_fim') data_fim?: Date,
+    @Query('ativo') ativo?: string,
+  ): Promise<EmprestimoDocument[]> {
+    const ativoBool = ativo !== undefined ? ativo === 'true' : undefined;
 
-  //     return {
-  //       message: 'Empréstimo devolvido com sucesso',
-  //     };
-  //   }
+    return this.emprestimosService.buscarAvancado({
+      livro,
+      usuario,
+      exemplar,
+      data_inicio,
+      data_fim,
+      ativo: ativoBool,
+    });
+  }
 
-  //   @Delete(':id')
-  //   async removeEmprestimo(@Param('id', ParseIntPipe) id: number) {
-  //     await this.emprestimosService.removeEmprestimo(id);
+  @Put(':exemplarId/devolucao')
+  async devolveExemplar(
+    @Param('exemplarId') exemplarId: string,
+  ): Promise<EmprestimoDocument> {
+    return this.emprestimosService.devolveExemplar({ _id: exemplarId });
+  }
 
-  //     return {
-  //       message: 'Empréstimo removido com sucesso',
-  //     };
-  //   }
-
-  //   @Get('busca')
-  //   async buscarAvancado(
-  //     @Query('livro_id') livro_id?: number,
-  //     @Query('usuario_id') usuario_id?: number,
-  //     @Query('exemplar_id') exemplar_id?: number,
-  //     @Query('data_inicio') data_inicio?: string,
-  //     @Query('data_fim') data_fim?: string,
-  //     @Query('ativo') ativo?: string,
-  //   ): Promise<any[]> {
-  //     return this.emprestimosService.buscarAvancado({
-  //       livro_id: livro_id ? Number(livro_id) : undefined,
-  //       usuario_id: usuario_id ? Number(usuario_id) : undefined,
-  //       exemplar_id: exemplar_id ? Number(exemplar_id) : undefined,
-  //       data_inicio: data_inicio ? new Date(data_inicio) : undefined,
-  //       data_fim: data_fim ? new Date(data_fim) : undefined,
-  //       ativo: ativo === 'true' ? true : ativo === 'false' ? false : undefined,
-  //     });
-  //   }
+  @Delete(':emprestimoId')
+  async deleteEmprestimo(
+    @Param('emprestimoId') emprestimoId: string,
+  ): Promise<EmprestimoDocument> {
+    return this.emprestimosService.deleteEmprestimo({ _id: emprestimoId });
+  }
 }
