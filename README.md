@@ -1,19 +1,19 @@
 <p align="center">
-  <img src="https://nestjs.com/img/logo-small.svg" width="80" style="margin-right: 20px;" />
+  <img src="https://nestjs.com/logo.svg" width="80" />
   <img src="https://s2.glbimg.com/nXvJL6pASCukU-CT1l_h6j2l_Qc=/300x225/s.glbimg.com/jo/g1/f/original/2015/04/06/udesc-novo_1.jpg" width="80" />
 </p>
 
 <p align="center">
-  Trabalho de Ban II - Projeto back-end desenvolvido com NestJS
+  Trabalho de Ban II - Projeto back-end desenvolvido com NestJS (Migrado para NoSQL)
 </p>
 
-## 📚 Acervo de Livros
+## 📚 Acervo de Livros (Versão NoSQL)
 
 Sistema back-end para gerenciamento de acervo de livros, desenvolvido com NestJS, que permite o controle de autores, categorias, editoras, usuários e exemplares, além da gestão de empréstimos.
 
-O sistema garante a organização e rastreabilidade dos livros disponíveis, possibilitando o controle de disponibilidade de exemplares e validações no processo de empréstimo.
+A aplicação foi migrada de um modelo relacional (SQL) para o modelo orientado a documentos (**NoSQL**), utilizando o **MongoDB** para otimizar as consultas profundamente aninhadas (como o histórico e detalhes de empréstimos) e garantir consistência na disponibilidade física de exemplares através de propriedades embutidas.
 
-A aplicação segue uma arquitetura modular, com separação clara de responsabilidades entre controllers, services, DTOs e entities.
+A aplicação segue uma arquitetura modular, com separação clara de responsabilidades entre controllers, services, DTOs e schemas.
 
 ---
 
@@ -21,7 +21,7 @@ A aplicação segue uma arquitetura modular, com separação clara de responsabi
 
 * Node.js (versão recomendada: >= 18)
 * Yarn
-* PostgreSQL
+* MongoDB (Instalado localmente)
 
 ---
 
@@ -35,7 +35,7 @@ A aplicação segue uma arquitetura modular, com separação clara de responsabi
 
 * Back-end: Node.js + TypeScript (NestJS)
 * Front-end: React *(em repositório separado)*
-* Banco de dados: PostgreSQL
+* Banco de dados: MongoDB (via Mongoose)
 
 ---
 
@@ -44,6 +44,7 @@ A aplicação segue uma arquitetura modular, com separação clara de responsabi
 ```bash
 # instalar dependências
 yarn install
+
 ```
 
 ---
@@ -54,17 +55,19 @@ yarn install
 # desenvolvimento
 yarn start
 
-# modo watch
+# modo watch (desenvolvimento ativo)
 yarn start:dev
 
 # produção
 yarn start:prod
+
 ```
 
 💡 Alternativamente, você pode rodar sem instalar o NestJS globalmente:
 
 ```bash
 npx nest start
+
 ```
 
 ---
@@ -76,49 +79,73 @@ O projeto já contém um arquivo de exemplo chamado `.env_copy`.
 ```bash
 # criar arquivo de ambiente
 cp .env_copy .env
+
 ```
 
 ---
 
 ## 🗄️ Configuração do banco de dados
 
-Edite o arquivo `.env`:
+Edite o arquivo `.env` inserindo a URI de conexão com a sua instância do MongoDB:
 
 ```env
 PORT=3000
 
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=acervo_livro
-DB_USER=postgres
-DB_PASS=postgres
-```
+# URI do MongoDB (ajuste se estiver usando credenciais ou Atlas)
+MONGO_URI=mongodb://localhost:27017/acervo_livro
 
-⚠️ Ajuste conforme sua instalação do PostgreSQL.
+```
+--- 
+Não, **não está explicada**. O arquivo atual assume que o MongoDB já está rodando nativamente na máquina (`localhost:27017`) e não menciona nem o **Docker** (como subir o container) e nem o **MongoDB Compass** (como se conectar visualmente para gerenciar o banco).
+
+Para que o ambiente NoSQL fique completo para você, seus colegas ou para a professora rodarem o projeto do zero usando Docker, essa seção precisa ser adicionada.
+
+Aqui está o trecho exato que você deve **adicionar** ao seu `README.md`, logo após a seção **"Configuração do ambiente (.env)"**:
 
 ---
 
-## 🏗️ Criação do banco de dados
+## 🐳 Inicialização com Docker & MongoDB Compass
+
+Para rodar o banco de dados de forma isolada e rápida sem precisar instalar o MongoDB nativamente, utilizamos o Docker.
+
+### 1. Subindo o Banco com Docker
+Se você já possui um arquivo `docker-compose.yml`, execute:
+```bash
+docker-compose up -d
+
+```
+
+Caso queira subir o container diretamente via terminal usando a imagem oficial, execute o comando abaixo no seu WSL Ubuntu:
 
 ```bash
-# acessar postgres
-sudo -u postgres psql
+docker run -d --name mongo-acervo -p 27017:27017 -v mongo_data:/data/db mongo:latest
 
-# criar banco
-CREATE DATABASE acervo_livro;
 ```
+
+*(`-v mongo_data:/data/db` garante que os livros cadastrados não sumam quando o container parar).*
+
+### 2. Conectando no MongoDB Compass
+
+O **MongoDB Compass** é a interface gráfica oficial para visualizar suas coleções. Para se conectar ao banco do projeto:
+
+1. Abra o MongoDB Compass.
+2. No campo **URI** ou **Connection String**, insira exatamente:
+```text
+mongodb://localhost:27017/acervo_livro
+
+```
+3. Clique em **Connect**.
+
+Assim que você iniciar a aplicação NestJS (`yarn start:dev`), as coleções `autores`, `livros`, `emprestimos`, etc., aparecerão automaticamente dentro do Compass para você analisar.
+
 
 ---
 
-## 🔄 Sincronização do banco
+## 🔄 Sincronização e Coleções
 
-O projeto utiliza o TypeORM com:
+O projeto utiliza o **Mongoose** como ODM.
 
-```ts
-synchronize: true
-```
-
-✔️ As tabelas são criadas automaticamente ao iniciar a aplicação.
+✔️ As coleções (*collections*) e seus respectivos índices são criados e mapeados automaticamente no MongoDB assim que a aplicação é inicializada, eliminando a necessidade de scripts de migração manuais.
 
 ---
 
@@ -126,9 +153,10 @@ synchronize: true
 
 ```bash
 yarn start        # inicia aplicação
-yarn start:dev    # desenvolvimento
+yarn start:dev    # desenvolvimento em modo watch
 yarn start:prod   # produção
-yarn build        # build do projeto
+yarn build        # gera o build em javascript compilado
+
 ```
 
 ---
@@ -150,22 +178,20 @@ src/
  ├── exemplares/
  ├── livros/
  ├── usuarios/
+ ├── common/
+ │    └── utils/
+ │         └── query.utils.ts
  │
  ├── app.controller.ts
  ├── app.service.ts
  ├── app.module.ts
  └── main.ts
+
 ```
 
 📌 O projeto segue uma arquitetura modular baseada no NestJS, onde cada domínio possui seu próprio módulo contendo:
 
-* **Controller** → responsável pelas rotas da API
-* **Service** → regras de negócio
-* **DTOs** → validação e transferência de dados
-* **Entities** → mapeamento com o banco de dados
-
----
-
-## Diagrama disponibilizado para análise
-
-https://dbdiagram.io/d/69cf05f678c6c4bc7ad17c24
+* **Controller** → responsável pelas rotas da API e recepção dos dados.
+* **Service** → regras de negócio, persistência assíncrona e consultas avançadas.
+* **DTOs** → objetos de transferência de dados e regras de validação física (`class-validator`).
+* **Schemas** → mapeamento e modelagem de documentos do MongoDB usando Decorators do Mongoose.
