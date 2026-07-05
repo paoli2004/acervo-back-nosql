@@ -27,11 +27,11 @@ export class UsuariosController {
 
   @Post()
   async createUsuario(@Body() createUsuario: CreateUsuarioDto) {
-    const newUser = await this.usuariosService.createUsuario(createUsuario);
+    const novoUsuario = await this.usuariosService.createUsuario(createUsuario);
 
     return {
       message: 'Usuário criado com sucesso',
-      usuario: newUser,
+      usuario: novoUsuario,
     };
   }
 
@@ -40,14 +40,15 @@ export class UsuariosController {
     @Param('usuarioId') usuarioId: string,
     @Body() updateUsuario: UpdateUsuarioDto,
   ) {
-    const updatedUser = await this.usuariosService.findOneAndUpdateUsuario(
-      { _id: usuarioId },
-      updateUsuario,
-    );
+    const usuarioAtualizado =
+      await this.usuariosService.findOneAndUpdateUsuario(
+        { _id: usuarioId },
+        updateUsuario,
+      );
 
     return {
       message: 'Usuário atualizado com sucesso',
-      usuario: updatedUser,
+      usuario: usuarioAtualizado,
     };
   }
 

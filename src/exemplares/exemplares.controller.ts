@@ -32,11 +32,11 @@ export class ExemplaresController {
   }
 
   @Get('livro/:livroId')
-  async getExemplaresByLivro(
+  async findExemplaresByLivro(
     @Param('livroId') livroId: string,
     @Query('onlyDisponiveis') onlyDisponiveis?: string,
   ) {
-    return this.exemplaresService.getExemplaresByLivro(
+    return this.exemplaresService.findExemplaresByLivro(
       livroId,
       onlyDisponiveis === 'true',
     );
@@ -44,12 +44,12 @@ export class ExemplaresController {
 
   @Post()
   async createExemplar(@Body() createExemplarDto: CreateExemplarDto) {
-    const newExemplary =
+    const novoExemplar =
       await this.exemplaresService.createExemplar(createExemplarDto);
 
     return {
       message: 'Exemplar criado com sucesso',
-      exemplar: newExemplary,
+      exemplar: novoExemplar,
     };
   }
 
@@ -58,7 +58,7 @@ export class ExemplaresController {
     @Param('livroId') livroId: string,
     @Body() updateExemplarDto: UpdateExemplarDto,
   ) {
-    const updatedExemplary =
+    const exemplarAtualizado =
       await this.exemplaresService.findOneAndUpdateExemplar(
         { _id: livroId },
         updateExemplarDto,
@@ -66,19 +66,18 @@ export class ExemplaresController {
 
     return {
       message: 'Exemplar atualizado com sucesso',
-      exemplar: updatedExemplary,
+      exemplar: exemplarAtualizado,
     };
   }
 
   @Delete(':livroId')
   async deleteExemplar(@Param('livroId') livroId: string) {
-    const deletedExemplary = await this.exemplaresService.deleteExemplar({
+    await this.exemplaresService.deleteExemplar({
       _id: livroId,
     });
 
     return {
       message: 'Exemplar removido com sucesso',
-      exemplar: deletedExemplary,
     };
   }
 }

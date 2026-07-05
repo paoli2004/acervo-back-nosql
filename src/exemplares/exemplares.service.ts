@@ -10,6 +10,7 @@ import { LivrosService } from '../livros/livros.service';
 import { Exemplar, ExemplarDocument } from './schemas/exemplar.schema';
 import { CreateExemplarDto } from './dto/createExemplar.dto';
 import { UpdateExemplarDto } from './dto/updateExemplar.dto';
+import { findOrFail } from '../common/utils/query.utils';
 
 type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
@@ -22,30 +23,28 @@ export class ExemplaresService {
   ) {}
 
   /**
-   * Retorna um exemplar.
-   * @param exemplarFilterQuery Objeto de filtro para encontrar o exemplar (ex: { _id: id }).
-   * @returns Exemplar encontrado.
+   * Localiza um único documento de exemplar baseado em um filtro de busca na coleção.
+   * @param exemplarFilterQuery Objeto contendo os critérios de seleção (ex: { _id: id }).
+   * @returns Documento do exemplar encontrado com seus métodos e propriedades do Mongoose.
+   * @throws {NotFoundException} Se nenhum documento na coleção corresponder ao critério.
    */
   async findExemplar(
     exemplarFilterQuery: FilterQuery<Exemplar>,
   ): Promise<ExemplarDocument> {
-    const exemplar = await this.exemplarModel
-      .findOne(exemplarFilterQuery)
-      .populate('livro')
-      .populate('editora')
-      .exec();
-
-    if (!exemplar) {
-      throw new NotFoundException('Exemplar não encontrado');
-    }
-
-    return exemplar;
+    return await findOrFail(
+      this.exemplarModel
+        .findOne(exemplarFilterQuery)
+        .populate('livro')
+        .populate('editora')
+        .exec(),
+      'Exemplar não encontrado',
+    );
   }
 
   /**
-   * Retorna todos os exemplares registrados.
-   * Traz os dados do livro pai populados, junto com seus respectivos autores e editora.
-   * @returns Lista de exemplares com dados do acervo.
+   * Recupera uma lista de documentos de exemplares da coleção, permitindo aplicar filtros opcionais.
+   * @param exemplarFilterQuery Critério opcional de projeção ou busca (ex: { codigo_patrimonio: '123' }). Se omitido, retorna todos da coleção.
+   * @returns Array contendo os documentos dos exemplares localizados.
    */
   async findAllExemplares(): Promise<ExemplarDocument[]> {
     return this.exemplarModel
@@ -59,9 +58,9 @@ export class ExemplaresService {
   }
 
   /**
-   * Retorna os exemplares registrados que estão disponíveis na estante.
-   * Filtra diretamente pelo status booleano, trazendo os dados do livro, autores e editora.
-   * @returns Lista de exemplares disponíveis.
+   * Recupera uma lista de documentos de exemplares registrados que estão disponíveis na estante.
+   * Filtra diretamente pelo status ehDisponivel, trazendo os dados do livro, autores e editora de exemplares disponiveis.
+   * @returns Array contendo os documentos dos exemplares localizados disponíveis.
    */
   async findAllExemplaresDisponiveis(): Promise<ExemplarDocument[]> {
     return this.exemplarModel
@@ -75,12 +74,12 @@ export class ExemplaresService {
   }
 
   /**
-   * Retorna todos os exemplares de um livro.
-   * @param livroId - ID alfanumérico (ObjectId) do livro pai.
+   * Recupera uma lista de documentos de exemplares de um livro específico.
+   * @param livroId - ID do livro.
    * @param onlyDisponiveis - Se true, retorna somente os exemplares disponíveis na estante.
-   * @returns Lista de exemplares de um livro.
+   * @returns Array contendo os documentos dos exemplares localizados.
    */
-  async getExemplaresByLivro(
+  async findExemplaresByLivro(
     livroId: string,
     onlyDisponiveis = false,
   ): Promise<ExemplarDocument[]> {
@@ -101,9 +100,9 @@ export class ExemplaresService {
   }
 
   /**
-   * Insere um novo exemplar no sistema após validar o código de patrimônio e a existência do livro.
-   * @param createExemplarDto Dados para criação do exemplar.
-   * @returns Documento do exemplar recém-criado.
+   * Cria e persiste um novo documento de exemplar na coleção correspondente do MongoDB.
+   * @param createExemplarDto Objeto contendo os dados estruturados e validados do exemplar (código de patrimônio, ano de publicação, etc).
+   * @returns O documento do exemplar recém-criado, incluindo o identificador único (_id) gerado pelo banco.
    */
   async createExemplar(
     createExemplarDto: CreateExemplarDto,
@@ -120,20 +119,22 @@ export class ExemplaresService {
 
     await this.livrosService.findLivro({ _id: createExemplarDto.livro });
 
-    const newExemplary = await this.exemplarModel.create({
+    const novoExemplar = await this.exemplarModel.create({
       codigo_patrimonio: createExemplarDto.codigo_patrimonio,
       ano_publicacao: createExemplarDto.ano_publicacao,
       livro: new Types.ObjectId(createExemplarDto.livro),
     });
 
-    return newExemplary;
+    return novoExemplar;
   }
 
   /**
-   * Atualiza um exemplar de forma parcial e dinâmica com base em um filtro de busca.
-   * @param exemplarFilterQuery Filtro para encontrar o exemplar que será atualizado (ex: { _id: id }).
-   * @param updateExemplarDto Dados com as alterações parciais do exemplar.
-   * @returns Documento do exemplar já atualizado.
+   * Identifica um documento de exemplar por meio de um filtro e aplica as modificações fornecidas.
+   * @param exemplarFilterQuery Objeto de seleção para mapear o documento a ser alterado (ex: { _id: id }).
+   * @param updateExemplarDto Objeto contendo o conjunto de campos parciais ou completos a serem atualizados.
+   * @returns O documento do exemplar com as modificações aplicadas e atualizadas em memória.
+   * @throws {BadRequestException} Se o objeto de filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se o documento alvo não for localizado para a operação de escrita.
    */
   async findOneAndUpdateExemplar(
     exemplarFilterQuery: FilterQuery<Exemplar>,
@@ -143,61 +144,52 @@ export class ExemplaresService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    const exemplar = await this.exemplarModel
-      .findOne(exemplarFilterQuery)
-      .exec();
-
-    if (!exemplar) {
-      throw new NotFoundException('Exemplar não encontrado');
-    }
+    const exemplar = await findOrFail(
+      this.exemplarModel.findOne(exemplarFilterQuery).exec(),
+      'Exemplar não encontrado',
+    );
 
     if (updateExemplarDto.livro) {
       await this.livrosService.findLivro({ _id: updateExemplarDto.livro });
     }
 
-    const updatedExemplary = await this.exemplarModel
-      .findOneAndUpdate(
-        exemplarFilterQuery,
-        {
-          livro: updateExemplarDto.livro
-            ? new Types.ObjectId(updateExemplarDto.livro)
-            : exemplar.livro,
-          ano_publicacao:
-            updateExemplarDto.ano_publicacao ?? exemplar.ano_publicacao,
-          codigo_patrimonio:
-            updateExemplarDto.codigo_patrimonio ?? exemplar.codigo_patrimonio,
-        },
-        { new: true },
-      )
-      .exec();
-
-    if (!updatedExemplary) {
-      throw new NotFoundException('Exemplar não encontrado para atualização');
-    }
-
-    return updatedExemplary;
+    return await findOrFail(
+      this.exemplarModel
+        .findOneAndUpdate(
+          exemplarFilterQuery,
+          {
+            livro: updateExemplarDto.livro
+              ? new Types.ObjectId(updateExemplarDto.livro)
+              : exemplar.livro,
+            ano_publicacao:
+              updateExemplarDto.ano_publicacao ?? exemplar.ano_publicacao,
+            codigo_patrimonio:
+              updateExemplarDto.codigo_patrimonio ?? exemplar.codigo_patrimonio,
+          },
+          { new: true },
+        )
+        .exec(),
+      'Exemplar não encontrado para atualização',
+    );
   }
 
   /**
-   * Remove um exemplar do sistema com base em um filtro de busca.
-   * @param exemplarFilterQuery Filtro para encontrar o exemplar que será removido (ex: { _id: id }).
-   * @returns Documento do exemplar que foi removido.
+   * Remove de forma definitiva um documento de exemplar da coleção do MongoDB baseado em um filtro.
+   * @param exemplarFilterQuery Objeto de seleção contendo as propriedades para identificar o exemplar a ser deletado (ex: { _id: id }).
+   * @returns O documento do exemplar que foi removido da coleção.
+   * @throws {BadRequestException} Se o objeto de filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se o documento não for encontrado na coleção para a remoção.
    */
   async deleteExemplar(
     exemplarFilterQuery: FilterQuery<Exemplar>,
-  ): Promise<ExemplarDocument> {
+  ): Promise<void> {
     if (!exemplarFilterQuery || Object.keys(exemplarFilterQuery).length === 0) {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    const deletedExemplary = await this.exemplarModel
-      .findOneAndDelete(exemplarFilterQuery)
-      .exec();
-
-    if (!deletedExemplary) {
-      throw new NotFoundException('Exemplar não encontrado para remoção');
-    }
-
-    return deletedExemplary;
+    return await findOrFail(
+      this.exemplarModel.findOneAndDelete(exemplarFilterQuery),
+      'Exemplar não encontrado para remoção',
+    );
   }
 }

@@ -7,6 +7,6 @@ export class UpdateLivroDto extends PartialType(
     'isbn',
     'autores',
     'categorias',
-    'editora'
+    'editora',
   ] as const),
 ) {}

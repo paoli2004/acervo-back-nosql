@@ -30,12 +30,12 @@ export class EmprestimosController {
 
   @Post()
   async create(@Body() createEmprestimoDto: CreateEmprestimoDto) {
-    const newEmprestimo =
+    const novoEmprestimo =
       await this.emprestimosService.createEmprestimo(createEmprestimoDto);
 
     return {
       message: 'Empréstimo criado com sucesso',
-      emprestimo: newEmprestimo,
+      emprestimo: novoEmprestimo,
     };
   }
 
@@ -48,7 +48,7 @@ export class EmprestimosController {
     @Query('data_fim') data_fim?: Date,
     @Query('ativo') ativo?: string,
   ): Promise<EmprestimoDocument[]> {
-    const ativoBool = ativo !== undefined ? ativo === 'true' : undefined;
+    const isAtivo = ativo !== undefined ? ativo === 'true' : undefined;
 
     return this.emprestimosService.buscarAvancado({
       livro,
@@ -56,7 +56,7 @@ export class EmprestimosController {
       exemplar,
       data_inicio,
       data_fim,
-      ativo: ativoBool,
+      ativo: isAtivo,
     });
   }
 
@@ -68,9 +68,11 @@ export class EmprestimosController {
   }
 
   @Delete(':emprestimoId')
-  async deleteEmprestimo(
-    @Param('emprestimoId') emprestimoId: string,
-  ): Promise<EmprestimoDocument> {
-    return this.emprestimosService.deleteEmprestimo({ _id: emprestimoId });
+  async deleteEmprestimo(@Param('emprestimoId') emprestimoId: string) {
+    await this.emprestimosService.deleteEmprestimo({ _id: emprestimoId });
+
+    return {
+      message: 'Empréstimo removido com sucesso',
+    };
   }
 }

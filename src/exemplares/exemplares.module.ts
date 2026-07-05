@@ -10,7 +10,7 @@ import { LivrosModule } from '../livros/livros.module';
     MongooseModule.forFeature([
       { name: Exemplar.name, schema: ExemplarSchema },
     ]),
-    LivrosModule
+    LivrosModule,
   ],
   controllers: [ExemplaresController],
   providers: [ExemplaresService],

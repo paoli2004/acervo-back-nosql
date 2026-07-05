@@ -28,11 +28,11 @@ export class AutoresController {
 
   @Post()
   async createAutor(@Body() createAutor: CreateAutorDto) {
-    const newAutor = await this.autoresService.createAutor(createAutor);
+    const novoAutor = await this.autoresService.createAutor(createAutor);
 
     return {
       message: 'Autor criado com sucesso',
-      autor: newAutor,
+      autor: novoAutor,
     };
   }
 
@@ -41,14 +41,14 @@ export class AutoresController {
     @Param('autorId') autorId: string,
     @Body() updateAutor: UpdateAutorDto,
   ) {
-    const updatedAuthor = await this.autoresService.findOneAndUpdateAutor(
+    const autorAtualizado = await this.autoresService.findOneAndUpdateAutor(
       { _id: autorId },
       updateAutor,
     );
 
     return {
       message: 'Autor atualizado com sucesso',
-      autor: updatedAuthor,
+      autor: autorAtualizado,
     };
   }
 

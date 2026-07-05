@@ -10,6 +10,7 @@ import { Emprestimo, EmprestimoDocument } from './schemas/emprestimo.schema';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { ExemplaresService } from '../exemplares/exemplares.service';
 import { CreateEmprestimoDto } from './dto/createEmprestimo.dto';
+import { findOrFail } from '../common/utils/query.utils';
 
 type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
 
@@ -23,30 +24,15 @@ export class EmprestimosService {
   ) {}
 
   /**
-   *Executa uma Promise que busca uma entidade e lança erro caso não encontre.
-   *
-   * @template T Tipo da entidade esperada
-   * @param promise Promise que retorna a entidade ou null (ex: findOne do Mongoose)
-   * @param message Mensagem de erro caso a entidade não seja encontrada
-   * @returns A entidade encontrada (garantido que não é null)
+   * Localiza um único documento de emprestimo baseado em um filtro de busca na coleção.
+   * @param emprestimoFilterQuery Objeto contendo os critérios de seleção (ex: { _id: id }).
+   * @returns Documento do emprestimo encontrado com seus métodos e propriedades do Mongoose.
+   * @throws {NotFoundException} Se nenhum documento na coleção corresponder ao critério.
    */
-  private async findOrFail<T>(
-    promise: Promise<T | null>,
-    message: string,
-  ): Promise<T> {
-    const result = await promise;
-
-    if (!result) {
-      throw new NotFoundException(message);
-    }
-
-    return result;
-  }
-
   async findEmprestimo(
     emprestimoFilterQuery: FilterQuery<Emprestimo>,
   ): Promise<EmprestimoDocument> {
-    return this.findOrFail(
+    return await findOrFail(
       this.emprestimoModel
         .findOne(emprestimoFilterQuery)
         .populate('usuario')
@@ -68,6 +54,11 @@ export class EmprestimosService {
     );
   }
 
+  /**
+   * Recupera uma lista de documentos de emprestimos da coleção, permitindo aplicar filtros opcionais.
+   * @param emprestimoFilterQuery Critério opcional de projeção ou busca (ex: { usuario: 'José' }). Se omitido, retorna todos da coleção.
+   * @returns Array contendo os documentos dos emprestimos localizados.
+   */
   async findAllEmprestimos(): Promise<EmprestimoDocument[]> {
     return this.emprestimoModel
       .find()
@@ -88,15 +79,20 @@ export class EmprestimosService {
       .exec();
   }
 
+  /**
+   * Cria e persiste um novo documento de emprestimo na coleção correspondente do MongoDB.
+   * @param createEmprestimoDto Objeto contendo os dados estruturados e validados do emprestimo (usuario, exemplar, etc).
+   * @returns O documento do emprestimo recém-criado, incluindo o identificador único (_id) gerado pelo banco.
+   */
   async createEmprestimo(
     createEmprestimoDto: CreateEmprestimoDto,
   ): Promise<EmprestimoDocument> {
-    const usuario = await this.findOrFail(
+    await findOrFail(
       this.usuariosService.findUsuario({ _id: createEmprestimoDto.usuario }),
       'Usuário não encontrado',
     );
 
-    const exemplarEncontrado = await this.findOrFail(
+    const exemplarEncontrado = await findOrFail(
       this.exemplaresService.findExemplar({
         _id: createEmprestimoDto.exemplar,
       }),
@@ -123,10 +119,16 @@ export class EmprestimosService {
     return emprestimo;
   }
 
+  /**
+   * Registra a devolução de um exemplar, desativando o empréstimo e liberando o exemplar.
+   * @param emprestimoFilterQuery Critério de busca para localizar o empréstimo (ex: { _id: id }).
+   * @returns O documento do empréstimo atualizado com o status ativo como false.
+   * @throws {ConflictException} Se o empréstimo já constar como devolvido no banco.
+   */
   async devolveExemplar(
     emprestimoFilterQuery: FilterQuery<Emprestimo>,
   ): Promise<EmprestimoDocument> {
-    const emprestimo = await this.findOrFail(
+    const emprestimo = await findOrFail(
       this.emprestimoModel.findOne(emprestimoFilterQuery).exec(),
       'Empréstimo não encontrado',
     );
@@ -146,9 +148,16 @@ export class EmprestimosService {
     return emprestimo;
   }
 
+  /**
+   * Remove de forma definitiva um documento de emprestimo da coleção do MongoDB baseado em um filtro.
+   * @param emprestimoFilterQuery Objeto de seleção contendo as propriedades para identificar o emprestimo a ser deletado (ex: { _id: id }).
+   * @returns O documento do emprestimo que foi removido da coleção.
+   * @throws {BadRequestException} Se o objeto de filtro fornecido estiver vazio ou for inválido.
+   * @throws {NotFoundException} Se o documento não for encontrado na coleção para a remoção.
+   */
   async deleteEmprestimo(
     emprestimoFilterQuery: FilterQuery<Emprestimo>,
-  ): Promise<EmprestimoDocument> {
+  ): Promise<void> {
     if (
       !emprestimoFilterQuery ||
       Object.keys(emprestimoFilterQuery).length === 0
@@ -156,14 +165,18 @@ export class EmprestimosService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    const emprestimo = await this.findOrFail(
-      this.emprestimoModel.findOneAndDelete(emprestimoFilterQuery).exec(),
+    return await findOrFail(
+      this.emprestimoModel.findOneAndDelete(emprestimoFilterQuery),
       'Empréstimo não encontrado',
     );
-
-    return emprestimo;
   }
 
+  /**
+   * Realiza uma busca dinâmica e filtrada de empréstimos na coleção.
+   * @param params Filtros opcionais de busca (IDs de usuário/exemplar/livro, intervalo de datas e status ativo).
+   * @returns Lista de empréstimos ordenados por data, com toda a árvore de relacionamentos populada
+   * (Usuário, Exemplar, Livro, Autores, Categorias e Editora).
+   */
   async buscarAvancado(params: {
     livro?: string;
     usuario?: string;

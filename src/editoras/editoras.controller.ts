@@ -27,12 +27,11 @@ export class EditorasController {
 
   @Post()
   async createEditora(@Body() createEditora: CreateEditoraDto) {
-    const newPublisher =
-      await this.editorasService.createEditora(createEditora);
+    const novaEditora = await this.editorasService.createEditora(createEditora);
 
     return {
       message: 'Editora criada com sucesso',
-      editora: newPublisher,
+      editora: novaEditora,
     };
   }
 
@@ -41,14 +40,15 @@ export class EditorasController {
     @Param('editoraId') editoraId: string,
     @Body() updateEditora: UpdateEditoraDto,
   ) {
-    const updatedPublisher = await this.editorasService.findOneAndUpdateEditora(
-      { _id: editoraId },
-      updateEditora,
-    );
+    const editoraAtualizada =
+      await this.editorasService.findOneAndUpdateEditora(
+        { _id: editoraId },
+        updateEditora,
+      );
 
     return {
       message: 'Editora atualizada com sucesso',
-      editora: updatedPublisher,
+      editora: editoraAtualizada,
     };
   }
 
