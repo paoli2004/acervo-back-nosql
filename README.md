@@ -96,13 +96,6 @@ MONGO_URI=mongodb://localhost:27017/acervo_livro
 
 ```
 --- 
-Não, **não está explicada**. O arquivo atual assume que o MongoDB já está rodando nativamente na máquina (`localhost:27017`) e não menciona nem o **Docker** (como subir o container) e nem o **MongoDB Compass** (como se conectar visualmente para gerenciar o banco).
-
-Para que o ambiente NoSQL fique completo para você, seus colegas ou para a professora rodarem o projeto do zero usando Docker, essa seção precisa ser adicionada.
-
-Aqui está o trecho exato que você deve **adicionar** ao seu `README.md`, logo após a seção **"Configuração do ambiente (.env)"**:
-
----
 
 ## 🐳 Inicialização com Docker & MongoDB Compass
 
