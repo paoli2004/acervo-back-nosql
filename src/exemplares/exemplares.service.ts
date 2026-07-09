@@ -34,8 +34,10 @@ export class ExemplaresService {
     return await findOrFail(
       this.exemplarModel
         .findOne(exemplarFilterQuery)
-        .populate('livro')
-        .populate('editora')
+        .populate({
+          path: 'livro',
+          populate: [{ path: 'autores' }, { path: 'editora' }],
+        })
         .exec(),
       'Exemplar não encontrado',
     );
@@ -83,7 +85,7 @@ export class ExemplaresService {
     livroId: string,
     onlyDisponiveis = false,
   ): Promise<ExemplarDocument[]> {
-    const query: any = { livro: livroId };
+    const query: any = { livro: new Types.ObjectId(livroId) };
 
     if (onlyDisponiveis) {
       query.ehDisponivel = true;
