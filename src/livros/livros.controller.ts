@@ -18,11 +18,6 @@ import { Types } from 'mongoose';
 export class LivrosController {
   constructor(private readonly livrosService: LivrosService) {}
 
-  @Get(':livroId')
-  async findLivro(@Param('livroId') livroId: string): Promise<LivroDocument> {
-    return this.livrosService.findLivro({ _id: livroId });
-  }
-
   @Get()
   async findAllLivros(): Promise<LivroDocument[]> {
     return this.livrosService.findAllLivros();
@@ -41,6 +36,11 @@ export class LivrosController {
       editora_id: editoras,
       onlyDisponiveis: onlyDisponiveis === 'true',
     });
+  }
+
+  @Get(':livroId')
+  async findLivro(@Param('livroId') livroId: string): Promise<LivroDocument> {
+    return this.livrosService.findLivro({ _id: livroId });
   }
 
   @Post()

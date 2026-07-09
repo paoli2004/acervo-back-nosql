@@ -16,11 +16,6 @@ import { UpdateExemplarDto } from './dto/updateExemplar.dto';
 export class ExemplaresController {
   constructor(private readonly exemplaresService: ExemplaresService) {}
 
-  @Get(':livroId')
-  async findExemplar(@Param('livroId') livroId: string) {
-    return this.exemplaresService.findExemplar({ _id: livroId });
-  }
-
   @Get()
   async findAllExemplares() {
     return this.exemplaresService.findAllExemplares();
@@ -40,6 +35,11 @@ export class ExemplaresController {
       livroId,
       onlyDisponiveis === 'true',
     );
+  }
+
+  @Get(':livroId')
+  async findExemplar(@Param('livroId') livroId: string) {
+    return this.exemplaresService.findExemplar({ _id: livroId });
   }
 
   @Post()
