@@ -5,8 +5,8 @@ import {
   Body,
   Param,
   Delete,
-  Put,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { EmprestimosService } from './emprestimos.service';
 import { CreateEmprestimoDto } from './dto/createEmprestimo.dto';
@@ -60,7 +60,7 @@ export class EmprestimosController {
     };
   }
 
-  @Put(':exemplarId/devolucao')
+  @Patch(':exemplarId/devolucao')
   async devolveExemplar(
     @Param('exemplarId') exemplarId: string,
   ): Promise<EmprestimoDocument> {
