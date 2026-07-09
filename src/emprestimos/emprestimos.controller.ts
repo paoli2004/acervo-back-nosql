@@ -16,6 +16,27 @@ import { EmprestimoDocument } from './schemas/emprestimo.schema';
 export class EmprestimosController {
   constructor(private readonly emprestimosService: EmprestimosService) {}
 
+  @Get('busca')
+  async buscarAvancado(
+    @Query('livro') livro?: string,
+    @Query('usuario') usuario?: string,
+    @Query('exemplar') exemplar?: string,
+    @Query('data_inicio') data_inicio?: Date,
+    @Query('data_fim') data_fim?: Date,
+    @Query('ativo') ativo?: string,
+  ): Promise<EmprestimoDocument[]> {
+    const isAtivo = ativo !== undefined ? ativo === 'true' : undefined;
+
+    return this.emprestimosService.buscarAvancado({
+      livro,
+      usuario,
+      exemplar,
+      data_inicio,
+      data_fim,
+      ativo: isAtivo,
+    });
+  }
+
   @Get(':emprestimoId')
   async findEmprestimo(
     @Param('emprestimoId') emprestimoId: string,
@@ -37,27 +58,6 @@ export class EmprestimosController {
       message: 'Empréstimo criado com sucesso',
       emprestimo: novoEmprestimo,
     };
-  }
-
-  @Get('busca')
-  async buscarAvancado(
-    @Query('livro') livro?: string,
-    @Query('usuario') usuario?: string,
-    @Query('exemplar') exemplar?: string,
-    @Query('data_inicio') data_inicio?: Date,
-    @Query('data_fim') data_fim?: Date,
-    @Query('ativo') ativo?: string,
-  ): Promise<EmprestimoDocument[]> {
-    const isAtivo = ativo !== undefined ? ativo === 'true' : undefined;
-
-    return this.emprestimosService.buscarAvancado({
-      livro,
-      usuario,
-      exemplar,
-      data_inicio,
-      data_fim,
-      ativo: isAtivo,
-    });
   }
 
   @Put(':exemplarId/devolucao')

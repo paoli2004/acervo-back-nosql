@@ -4,7 +4,7 @@ import { LivrosModule } from './livros/livros.module';
 import { AutoresModule } from './autores/autores.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { ExemplaresModule } from './exemplares/exemplares.module';
-// import { EmprestimosModule } from './emprestimos/emprestimos.module';
+import { EmprestimosModule } from './emprestimos/emprestimos.module';
 import { EditorasModule } from './editoras/editoras.module';
 import { CategoriasModule } from './categorias/categorias.module';
 
@@ -16,7 +16,7 @@ import { CategoriasModule } from './categorias/categorias.module';
     LivrosModule,
     AutoresModule,
     UsuariosModule,
-    // EmprestimosModule,
+    EmprestimosModule,
     ExemplaresModule,
     EditorasModule,
     CategoriasModule,
