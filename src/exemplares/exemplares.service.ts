@@ -8,6 +8,10 @@ import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { LivrosService } from '../livros/livros.service';
 import { Exemplar, ExemplarDocument } from './schemas/exemplar.schema';
+import {
+  Emprestimo,
+  EmprestimoDocument,
+} from '../emprestimos/schemas/emprestimo.schema';
 import { CreateExemplarDto } from './dto/createExemplar.dto';
 import { UpdateExemplarDto } from './dto/updateExemplar.dto';
 import { findOrFail } from '../common/utils/query.utils';
@@ -19,6 +23,8 @@ export class ExemplaresService {
   constructor(
     @InjectModel(Exemplar.name)
     private exemplarModel: Model<ExemplarDocument>,
+    @InjectModel(Emprestimo.name)
+    private readonly emprestimoModel: Model<EmprestimoDocument>,
     private readonly livrosService: LivrosService,
   ) {}
 
@@ -189,7 +195,17 @@ export class ExemplaresService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    return await findOrFail(
+    const emprestimosVinculados = await this.emprestimoModel.countDocuments({
+      exemplar: new Types.ObjectId(exemplarFilterQuery._id),
+    });
+
+    if (emprestimosVinculados > 0) {
+      throw new ConflictException(
+        `Não é possível remover: ${emprestimosVinculados} empréstimo(s) vinculado(s) a este exemplar. Remova esse(s) empréstimo(s) antes.`,
+      );
+    }
+
+    await findOrFail(
       this.exemplarModel.findOneAndDelete(exemplarFilterQuery),
       'Exemplar não encontrado para remoção',
     );

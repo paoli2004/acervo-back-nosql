@@ -2,12 +2,17 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Usuario, UsuarioDocument } from './schemas/usuario.schema';
+import {
+  Emprestimo,
+  EmprestimoDocument,
+} from '../emprestimos/schemas/emprestimo.schema';
 import { CreateUsuarioDto } from './dto/createUsuario.dto';
 import { UpdateUsuarioDto } from './dto/updateUsuario.dto';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { findOrFail } from '../common/utils/query.utils';
 
 type FilterQuery<T> = { [P in keyof T]?: T[P] } & { _id?: any };
@@ -17,6 +22,8 @@ export class UsuariosService {
   constructor(
     @InjectModel(Usuario.name)
     private readonly usuarioModel: Model<UsuarioDocument>,
+    @InjectModel(Emprestimo.name)
+    private readonly emprestimoModel: Model<EmprestimoDocument>,
   ) {}
 
   /**
@@ -95,6 +102,16 @@ export class UsuariosService {
   async deleteUsuario(usuarioFilterQuery: FilterQuery<Usuario>): Promise<void> {
     if (!usuarioFilterQuery || Object.keys(usuarioFilterQuery).length === 0) {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
+
+    const emprestimosVinculados = await this.emprestimoModel.countDocuments({
+      usuario: new Types.ObjectId(usuarioFilterQuery._id),
+    });
+
+    if (emprestimosVinculados > 0) {
+      throw new ConflictException(
+        `Não é possível remover: ${emprestimosVinculados} empréstimo(s) vinculado(s) a este usuário. Remova esse(s) empréstimo(s) antes.`,
+      );
     }
 
     await findOrFail(

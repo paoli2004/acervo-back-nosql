@@ -165,10 +165,18 @@ export class EmprestimosService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    return await findOrFail(
-      this.emprestimoModel.findOneAndDelete(emprestimoFilterQuery),
+    const emprestimo = await findOrFail(
+      this.emprestimoModel.findOne(emprestimoFilterQuery).exec(),
       'Empréstimo não encontrado',
     );
+
+    if (emprestimo.ativo) {
+      throw new ConflictException(
+        'Não é possível remover um empréstimo ativo. Registre a devolução antes.',
+      );
+    }
+
+    await this.emprestimoModel.findOneAndDelete(emprestimoFilterQuery).exec();
   }
 
   /**
