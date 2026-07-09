@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Categoria, CategoriaSchema } from './schemas/categoria.schema';
+import { Livro, LivroSchema } from '../livros/schemas/livro.schema';
 import { CategoriasController } from './categorias.controller';
 import { CategoriasService } from './categorias.service';
 
@@ -8,6 +9,7 @@ import { CategoriasService } from './categorias.service';
   imports: [
     MongooseModule.forFeature([
       { name: Categoria.name, schema: CategoriaSchema },
+      { name: Livro.name, schema: LivroSchema },
     ]),
   ],
   controllers: [CategoriasController],

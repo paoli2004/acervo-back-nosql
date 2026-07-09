@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Categoria, CategoriaDocument } from './schemas/categoria.schema';
+import { Livro, LivroDocument } from '../livros/schemas/livro.schema';
 import { CreateCategoriaDto } from './dto/createCategoria.dto';
 import { UpdateCategoriaDto } from './dto/updateCategoria.dto';
 
@@ -16,6 +18,8 @@ export class CategoriasService {
   constructor(
     @InjectModel(Categoria.name)
     private readonly categoriaModel: Model<CategoriaDocument>,
+    @InjectModel(Livro.name)
+    private readonly livroModel: Model<LivroDocument>,
   ) {}
 
   /**
@@ -115,6 +119,16 @@ export class CategoriasService {
       Object.keys(categoriaFilterQuery).length === 0
     ) {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
+    }
+
+    const livrosVinculados = await this.livroModel.countDocuments({
+      categorias: new Types.ObjectId(categoriaFilterQuery._id),
+    });
+
+    if (livrosVinculados > 0) {
+      throw new ConflictException(
+        `Não é possível remover: ${livrosVinculados} livro(s) vinculado(s) a esta categoria. Reatribua ou remova esse(s) livro(s) antes.`,
+      );
     }
 
     const deletedCategory = await this.categoriaModel

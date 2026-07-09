@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Editora, EditoraDocument } from './schemas/editora.schema';
+import { Livro, LivroDocument } from '../livros/schemas/livro.schema';
 import { CreateEditoraDto } from './dto/createEditora.dto';
 import { UpdateEditoraDto } from './dto/updateEditora.dto';
 import { findOrFail } from '../common/utils/query.utils';
@@ -17,6 +19,8 @@ export class EditorasService {
   constructor(
     @InjectModel(Editora.name)
     private editorasModel: Model<EditoraDocument>,
+    @InjectModel(Livro.name)
+    private readonly livroModel: Model<LivroDocument>,
   ) {}
 
   /**
@@ -97,7 +101,17 @@ export class EditorasService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    return await findOrFail(
+    const livrosVinculados = await this.livroModel.countDocuments({
+      editora: new Types.ObjectId(editoraFilterQuery._id),
+    });
+
+    if (livrosVinculados > 0) {
+      throw new ConflictException(
+        `Não é possível remover: ${livrosVinculados} livro(s) vinculado(s) a esta editora. Reatribua ou remova esse(s) livro(s) antes.`,
+      );
+    }
+
+    await findOrFail(
       this.editorasModel.findOneAndDelete(editoraFilterQuery),
       'Editora não encontrada para remoção',
     );

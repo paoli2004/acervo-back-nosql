@@ -276,6 +276,16 @@ export class LivrosService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
+    const exemplaresVinculados = await this.exemplarModel.countDocuments({
+      livro: new Types.ObjectId(livroFilterQuery._id),
+    });
+
+    if (exemplaresVinculados > 0) {
+      throw new ConflictException(
+        `Não é possível remover: ${exemplaresVinculados} exemplar(es) vinculado(s) a este livro. Remova esse(s) exemplar(es) antes.`,
+      );
+    }
+
     await findOrFail(
       this.livroModel.findOneAndDelete(livroFilterQuery).exec(),
       'Livro não encontrado para remoção',

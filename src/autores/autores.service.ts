@@ -1,7 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Autor, AutorDocument } from './schemas/autor.schema';
+import { Livro, LivroDocument } from '../livros/schemas/livro.schema';
 import { CreateAutorDto } from './dto/createAutor.dto';
 import { findOrFail } from '../common/utils/query.utils';
 
@@ -12,6 +17,8 @@ export class AutoresService {
   constructor(
     @InjectModel(Autor.name)
     private readonly autorModel: Model<AutorDocument>,
+    @InjectModel(Livro.name)
+    private readonly livroModel: Model<LivroDocument>,
   ) {}
 
   /**
@@ -90,7 +97,17 @@ export class AutoresService {
       throw new BadRequestException('Filtro de busca inválido ou vazio');
     }
 
-    return await findOrFail(
+    const livrosVinculados = await this.livroModel.countDocuments({
+      autores: new Types.ObjectId(autorFilterQuery._id),
+    });
+
+    if (livrosVinculados > 0) {
+      throw new ConflictException(
+        `Não é possível remover: ${livrosVinculados} livro(s) vinculado(s) a este autor. Reatribua ou remova esse(s) livro(s) antes.`,
+      );
+    }
+
+    await findOrFail(
       this.autorModel.findOneAndDelete(autorFilterQuery),
       'Autor não encontrado para remoção',
     );
