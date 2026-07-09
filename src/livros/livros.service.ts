@@ -70,14 +70,14 @@ export class LivrosService {
 
   /**
    * Realiza uma busca avançada e dinâmica de livros baseada em filtros.
-   * @param params params Filtros opcionais de busca (titulo, IDs de autores, categorias, editoras e disponibilidade).
+   * @param params params Filtros opcionais de busca (IDs de autores, categorias, editoras e disponibilidade).
    * @returns Lista de livros com toda a árvore de relacionamentos populada (autores, categorias e editoras).
    */
   async buscarAvancado(params: {
     titulo?: string;
-    autor_id?: string;
-    categoria_id?: string;
-    editora_id?: string;
+    autores?: string;
+    categorias?: string;
+    editoras?: string;
     onlyDisponiveis?: boolean;
   }): Promise<
     {
@@ -92,10 +92,10 @@ export class LivrosService {
   > {
     const query: any = {};
 
-    if (params.titulo) query.titulo = { $regex: params.titulo, $options: 'i' };
-    if (params.autor_id) query.autores = params.autor_id;
-    if (params.categoria_id) query.categorias = params.categoria_id;
-    if (params.editora_id) query.editora = params.editora_id;
+    if (params.autores) query.autores = new Types.ObjectId(params.autores);
+    if (params.categorias)
+      query.categorias = new Types.ObjectId(params.categorias);
+    if (params.editoras) query.editora = new Types.ObjectId(params.editoras);
 
     const livros = await this.livroModel
       .find(query)

@@ -31,9 +31,9 @@ export class LivrosController {
     @Query('onlyDisponiveis') onlyDisponiveis?: string,
   ) {
     return this.livrosService.buscarAvancado({
-      autor_id: autores,
-      categoria_id: categorias,
-      editora_id: editoras,
+      autores: autores,
+      categorias: categorias,
+      editoras: editoras,
       onlyDisponiveis: onlyDisponiveis === 'true',
     });
   }
