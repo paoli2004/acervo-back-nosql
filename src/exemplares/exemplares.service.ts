@@ -182,6 +182,25 @@ export class ExemplaresService {
   }
 
   /**
+   * Atualiza o status de disponibilidade de um exemplar.
+   * @param exemplarId ID do exemplar a ser atualizado.
+   * @param ehDisponivel Novo status (false = emprestado, true = disponível).
+   * @returns O documento do exemplar com o status de disponibilidade atualizado.
+   * @throws {NotFoundException} Se o exemplar não for localizado para a operação.
+   */
+  async setDisponibilidade(
+    exemplarId: Types.ObjectId | string,
+    ehDisponivel: boolean,
+  ): Promise<ExemplarDocument> {
+    return findOrFail(
+      this.exemplarModel
+        .findByIdAndUpdate(exemplarId, { ehDisponivel }, { new: true })
+        .exec(),
+      'Exemplar não encontrado para atualização',
+    );
+  }
+
+  /**
    * Remove de forma definitiva um documento de exemplar da coleção do MongoDB baseado em um filtro.
    * @param exemplarFilterQuery Objeto de seleção contendo as propriedades para identificar o exemplar a ser deletado (ex: { _id: id }).
    * @returns O documento do exemplar que foi removido da coleção.

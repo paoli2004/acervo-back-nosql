@@ -111,9 +111,9 @@ export class EmprestimosService {
       ativo: true,
     });
 
-    await this.exemplaresService.findOneAndUpdateExemplar(
-      { _id: exemplarEncontrado._id },
-      { ehDisponivel: false } as any,
+    await this.exemplaresService.setDisponibilidade(
+      exemplarEncontrado._id,
+      false,
     );
 
     return emprestimo;
@@ -140,9 +140,9 @@ export class EmprestimosService {
     emprestimo.ativo = false;
     await emprestimo.save();
 
-    await this.exemplaresService.findOneAndUpdateExemplar(
-      { _id: emprestimo.exemplar },
-      { ehDisponivel: true } as any,
+    await this.exemplaresService.setDisponibilidade(
+      emprestimo.exemplar as Types.ObjectId,
+      true,
     );
 
     return emprestimo;
